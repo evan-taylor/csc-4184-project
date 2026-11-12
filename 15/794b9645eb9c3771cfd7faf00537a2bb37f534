@@ -1,0 +1,21 @@
+app/calendar.css
+  s_7c74a763075ef1::t_1c37e7119ea56d 3,6,22-23,27,29,43,66,76,91-98,117-118,121-122,124-128,132-140,143,147-148
+app/calendar.tsx
+  s_7c74a763075ef1::t_900a6e0e6ce3f5 143-147
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "15794b9645eb9c3771cfd7faf00537a2bb37f534",
+  "prompts": {},
+  "sessions": {
+    "s_7c74a763075ef1": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a1d14c-0a2a-7d61-b3fd-e980515a02ff",
+        "model": "unknown"
+      },
+      "human_author": "Evan Taylor <eltaylor1104@gmail.com>"
+    }
+  }
+}
