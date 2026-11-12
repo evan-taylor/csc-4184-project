@@ -1,0 +1,19 @@
+package-lock.json
+  s_7c74a763075ef1::t_6b2b4667ac9ced 70,1518,1530,1667,1727,2278,2622,3213,3399,5578,5588,6286,6448,6725
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "43cd09f45d0e0f0baa49956d10d692987038322f",
+  "prompts": {},
+  "sessions": {
+    "s_7c74a763075ef1": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a1d14c-0a2a-7d61-b3fd-e980515a02ff",
+        "model": "unknown"
+      },
+      "human_author": "Evan Taylor <eltaylor1104@gmail.com>"
+    }
+  }
+}
