@@ -1,0 +1,23 @@
+public/calendar/event-options.svg
+  s_7c74a763075ef1::t_44e4a44d8f73d0 1-7
+public/calendar/next.svg
+  s_7c74a763075ef1::t_1381b888159e03 1-6
+public/calendar/previous.svg
+  s_7c74a763075ef1::t_bc5f0d7df4650a 1-6
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "051133ae6b3fee40576c6cb4f4b3493db6c84d43",
+  "prompts": {},
+  "sessions": {
+    "s_7c74a763075ef1": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a1d14c-0a2a-7d61-b3fd-e980515a02ff",
+        "model": "unknown"
+      },
+      "human_author": "Evan Taylor <eltaylor1104@gmail.com>"
+    }
+  }
+}
