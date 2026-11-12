@@ -140,9 +140,11 @@ export default function Calendar() {
       )}
 
       <div className="planner-actions">
-        <Link className="planner-add" href="/add_activity">Plan My Evening</Link>
-        <Link className="planner-add" href={`/event/create?date=${selectedKey}`}>+ Add Event</Link>
-        {selectedKey !== today && <Link className="planner-today" href="/">Back to today</Link>}
+        <Link className="planner-plan" href="/add_activity">+ Plan My Evening</Link>
+        <div className="planner-links">
+          <Link href={`/event/create?date=${selectedKey}`}>Add Event</Link>
+          {selectedKey !== today && <Link href="/">Back to today</Link>}
+        </div>
       </div>
     </main>
   );
