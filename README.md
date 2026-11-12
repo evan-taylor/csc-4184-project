@@ -38,6 +38,9 @@ Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/bui
 ## Team Contribution
 
 Mae Vera - create event + edit event
+
 Evan Taylor - calendar with a create button
+
 Uriel Hernandez-Vega - plan my evening based on free time
+
 Helen Huy - event details
