@@ -1,0 +1,41 @@
+app/add_activity/page.css
+  s_7c74a763075ef1::t_6ac19cf1136961 8-10,21-24,30,49,68
+app/add_activity/page.tsx
+  s_7c74a763075ef1::t_f2bb266ff97954 8,39,66,70
+app/calendar.tsx
+  s_d030a5f3a80d45::t_7d9124b291d1f3 79,98,143
+app/event-details/[id]/page.tsx
+  s_7c74a763075ef1::t_d173f4bd331043 84,89,108,111,116,123,142,166
+app/event/[id]/edit/page.tsx
+  s_7c74a763075ef1::t_f309bfedfd5933 82,96,108,152,155,158,161,167,177,201,216,225,234
+app/event/create/page.tsx
+  s_7c74a763075ef1::t_91ecff83f70fc4 78,92,104,155,158,161,167,177,201,216,225,234
+app/globals.css
+  s_7c74a763075ef1::t_5cc4acdb0b0c64 27-62
+app/page.tsx
+  s_7c74a763075ef1::t_995fce53663682 13
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "d845ab54a2e7e71b7c6f7cad5c5e2dccaef2ee48",
+  "prompts": {},
+  "sessions": {
+    "s_7c74a763075ef1": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a1d14c-0a2a-7d61-b3fd-e980515a02ff",
+        "model": "unknown"
+      },
+      "human_author": "Evan Taylor <eltaylor1104@gmail.com>"
+    },
+    "s_d030a5f3a80d45": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a1d37a-4d63-78f3-85ec-de0651b8b5d8",
+        "model": "unknown"
+      },
+      "human_author": "Evan Taylor <eltaylor1104@gmail.com>"
+    }
+  }
+}
