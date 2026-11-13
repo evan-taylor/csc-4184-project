@@ -1,7 +1,14 @@
 "use client"
 import  "./page.css"
-import {useState} from "react";
+import {useState, Suspense} from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { useSearchParams } from "next/navigation";
+
+type Activity = {
+    name: string;
+    selected: boolean;
+}
 
 function AddActivityButton({ title, onClick }: {title : string; onClick?: () => void}){
     return (
@@ -12,7 +19,7 @@ function AddActivityButton({ title, onClick }: {title : string; onClick?: () => 
 }
 
 function CountActivity(i : number, 
-                        setActivities: React.Dispatch<React.SetStateAction<{ name: string, selected: boolean; }[]>>
+                        setActivities: React.Dispatch<React.SetStateAction<Activity[]>>
 ){
     setActivities(prev => prev.map((activity, j) => {
     if (j === i){
@@ -22,8 +29,13 @@ function CountActivity(i : number,
     }));
 }
 
+function SetTime(activities: Activity[], router: ReturnType<typeof useRouter>){
+    const selectedActivities = activities.filter( activity => activity.selected);
+    sessionStorage.setItem("selectedActivities", JSON.stringify(selectedActivities));
+    router.push("/add-time")
+}
 
-export default function PlanEvening(){
+function PlanEvening(){
 
     function AddActivity(){
 
@@ -47,6 +59,12 @@ export default function PlanEvening(){
     const [showPopup, setShowPopup] = useState(false);
 
     const selectedCount = activities.filter(activity => activity.selected).length;
+
+    const router = useRouter();
+
+    const searchParams = useSearchParams();
+
+    const selectedDate = searchParams.get("date");
 
     return (
         <main className="planner-page evening-planner">
@@ -93,8 +111,18 @@ export default function PlanEvening(){
             <div className="subtitle">
                 <h2> {selectedCount} Activities Selected </h2>
             </div>
-            <AddActivityButton title="Set Time ->"/>
+            
+            <AddActivityButton title="Set Time ->" onClick={() => SetTime(activities, router)}/> 
 
         </main>
     )
+}
+
+
+export default function Page() {
+    return (
+        <Suspense fallback={<p>Loading...</p>}>
+            <PlanEvening />
+        </Suspense>
+    );
 }
