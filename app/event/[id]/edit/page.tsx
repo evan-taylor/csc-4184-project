@@ -79,7 +79,7 @@ function TimeSelect({
       <span>{label}</span>
       <div className="flex items-center gap-1.5">
         <select
-          className="w-16 bg-gray-200 py-2 pl-2.5 pr-1"
+          className="w-16 min-w-0 rounded-xs bg-gray-100 py-2 pl-2.5 pr-1"
           value={hour12}
           onChange={(e) => handleChange(e.target.value, minute, period)}
         >
@@ -93,7 +93,7 @@ function TimeSelect({
         <span className="font-medium">:</span>
 
         <select
-          className="w-16 bg-gray-200 py-2 pl-2.5 pr-1"
+          className="w-16 min-w-0 rounded-xs bg-gray-100 py-2 pl-2.5 pr-1"
           value={minute}
           onChange={(e) => handleChange(hour12, e.target.value, period)}
         >
@@ -105,7 +105,7 @@ function TimeSelect({
         </select>
 
         <select
-          className="w-16 bg-gray-200 py-2 pl-2.5 pr-1"
+          className="w-16 min-w-0 rounded-xs bg-gray-100 py-2 pl-2.5 pr-1"
           value={period}
           onChange={(e) => handleChange(hour12, minute, e.target.value)}
         >
@@ -149,22 +149,22 @@ export default function EditEventPage({ params }: { params: any }) {
   }
 
   if (!loaded) return null;
-  if (!event) return <p className="p-6">Event not found.</p>;
+  if (!event) return <p className="planner-page">Event not found.</p>;
 
   return (
-    <div className="relative mx-auto my-6 flex min-h-[700px] w-[360px] flex-col gap-4 overflow-hidden bg-white px-6 pb-6 pt-16 text-black">
+    <div className="planner-page flex flex-col gap-4">
       <button
         onClick={() => router.back()}
-        className="absolute right-3 top-3 flex h-8 w-8 items-center justify-center rounded-full bg-pink-100"
+        className="planner-button self-end"
         aria-label="Close"
       >
-        X
+        Close
       </button>
 
       <label className="flex flex-col gap-1">
         Event Title
         <input
-          className="bg-gray-200 p-2"
+          className="min-w-0 rounded-xs bg-gray-100 p-2"
           value={event.title}
           onChange={(e) => update("title", e.target.value)}
         />
@@ -174,7 +174,7 @@ export default function EditEventPage({ params }: { params: any }) {
         Date
         <input
           type="date"
-          className="bg-gray-200 p-2"
+          className="min-w-0 rounded-xs bg-gray-100 p-2"
           value={event.date}
           onChange={(e) => update("date", e.target.value)}
         />
@@ -198,7 +198,7 @@ export default function EditEventPage({ params }: { params: any }) {
       <label className="flex flex-col gap-1">
         Repeat
         <select
-          className="bg-gray-200 p-2"
+          className="min-w-0 rounded-xs bg-gray-100 p-2"
           value={event.repeat ?? "none"}
           onChange={(e) => update("repeat", e.target.value as Repeat)}
         >
@@ -213,7 +213,7 @@ export default function EditEventPage({ params }: { params: any }) {
       <label className="flex flex-col gap-1">
         Location
         <input
-          className="bg-gray-200 p-2"
+          className="min-w-0 rounded-xs bg-gray-100 p-2"
           value={event.location}
           onChange={(e) => update("location", e.target.value)}
         />
@@ -222,7 +222,7 @@ export default function EditEventPage({ params }: { params: any }) {
       <label className="flex flex-col gap-1">
         Description
         <textarea
-          className="h-24 resize-none bg-gray-200 p-2"
+          className="h-24 resize-none min-w-0 rounded-xs bg-gray-100 p-2"
           value={event.description}
           onChange={(e) => update("description", e.target.value)}
         />
@@ -231,7 +231,7 @@ export default function EditEventPage({ params }: { params: any }) {
       <button
         onClick={handleSave}
         disabled={!canSave}
-        className="mt-auto self-center bg-gray-300 px-6 py-2 disabled:opacity-50"
+        className="planner-button self-center disabled:opacity-50"
       >
         Save Changes
       </button>

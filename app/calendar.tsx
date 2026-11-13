@@ -76,7 +76,7 @@ export default function Calendar() {
     if (today) seedExampleEvents(today);
   }, [today]);
 
-  if (!today) return <main className="planner-calendar">Loading calendar…</main>;
+  if (!today) return <main className="planner-page">Loading calendar…</main>;
 
   const selectedDate = getSelectedDate(query.get("date"), today);
   const selectedKey = dateKey(selectedDate);
@@ -95,7 +95,7 @@ export default function Calendar() {
   }
 
   return (
-    <main className="planner-calendar">
+    <main className="planner-page">
       <header className="planner-header">
         <Link className="planner-arrow" href={`/?date=${shiftDay(selectedDate, -1)}`} aria-label="Previous day">
           <Image src="/calendar/previous.svg" alt="" width={36} height={73} />
@@ -140,7 +140,7 @@ export default function Calendar() {
       )}
 
       <div className="planner-actions">
-        <Link className="planner-plan" href="/add_activity">+ Plan My Evening</Link>
+        <Link className="planner-button planner-plan" href="/add_activity">+ Plan My Evening</Link>
         <div className="planner-links">
           <Link href={`/event/create?date=${selectedKey}`}>Add Event</Link>
           {selectedKey !== today && <Link href="/">Back to today</Link>}

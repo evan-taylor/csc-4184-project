@@ -81,12 +81,12 @@ export default function EventDetailsPage({
   // Event was not found
   if (!event) {
     return (
-      <div className="mx-auto w-[360px] p-6">
+      <div className="planner-page">
         <p>Event not found.</p>
 
         <button
           onClick={() => router.push("/")}
-          className="mt-4 bg-gray-300 px-4 py-2"
+          className="planner-button mt-4"
         >
           Back to Calendar
         </button>
@@ -105,23 +105,22 @@ export default function EventDetailsPage({
   }
 
   return (
-    <div className="mx-auto my-6 min-h-[700px] w-[360px] max-w-full bg-white px-5 py-6 text-black">
+    <div className="planner-page">
 
       {/* Header */}
-      <div className="relative flex items-center">
+      <div className="grid grid-cols-[1fr_auto_1fr] items-center">
 
         {/* Back button */}
         <button
           onClick={handleBack}
-          className="flex items-center gap-2"
+          className="flex min-h-11 w-fit items-center gap-1"
         >
           <span className="text-4xl font-light">‹</span>
           <span className="text-lg">Back</span>
         </button>
 
         {/* Date */}
-        <div className="absolute left-1/2 -translate-x-1/2 text-center">
-          <p className="text-xl">Today</p>
+        <div className="text-center">
           <p className="text-xl">
             {formatDate(event.date)}
           </p>
@@ -140,7 +139,7 @@ export default function EventDetailsPage({
       </h2>
 
       {/* Event information box */}
-      <div className="bg-gray-300 p-3 text-xl">
+      <div className="rounded-xs bg-[#ffe3e3] p-3">
 
         {/* Event time */}
         <p>
@@ -164,7 +163,7 @@ export default function EventDetailsPage({
       <div className="mt-7 flex justify-center">
         <button
           onClick={handleEdit}
-          className="bg-gray-300 px-10 py-3 text-xl font-bold"
+          className="planner-button"
         >
           Edit Event →
         </button>

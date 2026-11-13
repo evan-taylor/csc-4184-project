@@ -1,30 +1,16 @@
-.evening-planner {
-    flex: 1;
-    padding: 1rem;
-    background-color: antiquewhite;
-    color:black;
-}
-
 .evening-planner .subtitle{
     margin: .5rem auto;
-    width: 235px;
     font-weight: bold;
     text-align: left;
 }
 
 
-.evening-planner .button{
-   display: block;
-    margin: .5rem auto;
-    padding: .5rem .5rem;
-    background-color: lightslategrey;
-    color: black;
-    cursor: pointer;
+.evening-planner .planner-button {
+    display: block;
+    margin: 0.5rem auto;
 }
 
-
 .evening-planner .activity-list {
-    align-items: center;
     display: flex;
     flex-direction: column;
     gap: 7px;
@@ -32,30 +18,21 @@
 }
 
 .evening-planner .activity {
-    background-color: lightgray;
-    color: black;
+    background: #ffe3e3;
+    border-radius: 0.1875rem;
+    display: flex;
+    gap: 0.5rem;
     padding: 10px;
-    width: 235px;
     cursor: pointer;
 }
 
 .evening-planner .popup {
-    background-color: antiquewhite;
-    color: black;
+    background: white;
     padding: 25px;
     width: 300px;
     max-width: 90%;
     border-radius: 8px;
     text-align: center;
-}
-
-.evening-planner .popup button{
-   display: block;
-    margin: 1rem auto;
-    padding: .5rem .5rem;
-    background-color: lightslategrey;
-    color: black;
-    cursor: pointer;
 }
 
 .evening-planner .popup input {
@@ -69,6 +46,7 @@
 
 .evening-planner .popup-background {
     position: fixed;
+    z-index: 1;
     top: 0;
     left: 0;
     width: 100%;
@@ -87,7 +65,7 @@
     text-decoration: underline;
 }
 
-.evening-planner .button:disabled {
+.evening-planner .planner-button:disabled {
     opacity: .55;
     cursor: default;
 }

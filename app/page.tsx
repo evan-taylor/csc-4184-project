@@ -10,7 +10,7 @@ export const metadata: Metadata = {
 
 export default function Home() {
   return (
-    <Suspense fallback={<main className="planner-calendar">Loading calendar…</main>}>
+    <Suspense fallback={<main className="planner-page">Loading calendar…</main>}>
       <Calendar />
     </Suspense>
   );

@@ -5,7 +5,7 @@ import Link from "next/link";
 
 function AddActivityButton({ title, onClick }: {title : string; onClick?: () => void}){
     return (
-        <button className="button" onClick={onClick} disabled={!onClick}>
+        <button className="planner-button" onClick={onClick} disabled={!onClick}>
              {title}
         </button>
     );
@@ -36,7 +36,7 @@ export default function PlanEvening(){
     const [showPopup, setShowPopup] = useState(false);
 
     return (
-        <main className="evening-planner">
+        <main className="planner-page evening-planner">
             <Link className="calendar-back" href="/">Back to Calendar</Link>
             <div className="subtitle">
                 <h2> Choose Activities</h2>
@@ -63,11 +63,11 @@ export default function PlanEvening(){
                             onChange={(e) => setName(e.target.value)}
                         />
 
-                        <button onClick={AddActivity}>
+                        <button className="planner-button" onClick={AddActivity}>
                             Add
                         </button>
 
-                        <button onClick={() => setShowPopup(false)}>
+                        <button className="planner-button" onClick={() => setShowPopup(false)}>
                             Cancel
                         </button>
                     </div>
