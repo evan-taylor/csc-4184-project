@@ -11,6 +11,17 @@ function AddActivityButton({ title, onClick }: {title : string; onClick?: () => 
     );
 }
 
+function CountActivity(i : number, 
+                        setActivities: React.Dispatch<React.SetStateAction<{ name: string, selected: boolean; }[]>>
+){
+    setActivities(prev => prev.map((activity, j) => {
+    if (j === i){
+        return { ...activity, selected: !activity.selected};
+    }
+    return activity;
+    }));
+}
+
 
 export default function PlanEvening(){
 
@@ -35,6 +46,8 @@ export default function PlanEvening(){
 
     const [showPopup, setShowPopup] = useState(false);
 
+    const selectedCount = activities.filter(activity => activity.selected).length;
+
     return (
         <main className="planner-page evening-planner">
             <Link className="calendar-back" href="/">Back to Calendar</Link>
@@ -45,7 +58,7 @@ export default function PlanEvening(){
             <div className="activity-list">
                 {activities.map((activity, index) => (
                     <label className="activity" key={index}>
-                        <input type="checkbox" />
+                        <input type="checkbox" checked={activity.selected} onChange={() => CountActivity(index, setActivities)} />
                         {activity.name}
                     </label>
                 ))}
@@ -78,7 +91,7 @@ export default function PlanEvening(){
             <AddActivityButton title="+ Add Another Activity" onClick={() => setShowPopup(true)}/>
 
             <div className="subtitle">
-                <h2>Activities Selected </h2>
+                <h2> {selectedCount} Activities Selected </h2>
             </div>
             <AddActivityButton title="Set Time ->"/>
 
