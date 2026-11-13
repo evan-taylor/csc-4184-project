@@ -97,7 +97,7 @@ export default function EventDetailsPage({
   function handleEdit() {
     if (!event) return;
 
-    router.push(`/edit-event/${event.id}`);
+    router.push(`/event/${encodeURIComponent(event.id)}/edit`);
   }
 
   function handleBack() {

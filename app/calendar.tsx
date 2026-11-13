@@ -124,7 +124,7 @@ export default function Calendar() {
               <li>
                 <Link
                   className="planner-card planner-event"
-                  href={`/event/${encodeURIComponent(event.id)}/edit`}
+                  href={`/event-details/${encodeURIComponent(event.id)}`}
                 >
                   <span className="planner-title">{event.title}</span>
                   <Image className="planner-options" src="/calendar/event-options.svg" alt="" width={59} height={16} />
