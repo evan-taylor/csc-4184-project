@@ -1,0 +1,71 @@
+.evening-planner .subtitle{
+    margin: .5rem auto;
+    font-weight: bold;
+    text-align: left;
+}
+
+
+.evening-planner .planner-button {
+    display: block;
+    margin: 0.5rem auto;
+}
+
+.evening-planner .activity-list {
+    display: flex;
+    flex-direction: column;
+    gap: 7px;
+    margin: 20px 0;
+}
+
+.evening-planner .activity {
+    background: #d9d9d9;
+    border-radius: 0.1875rem;
+    display: flex;
+    gap: 0.5rem;
+    padding: 10px;
+    cursor: pointer;
+}
+
+.evening-planner .popup {
+    background: white;
+    padding: 25px;
+    width: 300px;
+    max-width: 90%;
+    border-radius: 8px;
+    text-align: center;
+}
+
+.evening-planner .popup input {
+    width: 100%;
+    padding: 10px;
+    margin: 15px 0;
+    background-color: white;
+    color: black;
+    border: 1px solid gray;
+}
+
+.evening-planner .popup-background {
+    position: fixed;
+    z-index: 1;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.4);
+
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.evening-planner .calendar-back {
+    display: block;
+    width: fit-content;
+    margin: 0 auto 1rem;
+    text-decoration: underline;
+}
+
+.evening-planner .planner-button:disabled {
+    opacity: .55;
+    cursor: default;
+}

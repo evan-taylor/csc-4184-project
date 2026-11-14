@@ -1,0 +1,58 @@
+
+.set-time .subtitle {
+    margin: .5rem auto;
+    font-weight: bold;
+    text-align: left;
+}
+
+.set-time .activity-list {
+    display: flex;
+    flex-direction: column;
+    gap: 7px;
+    margin: 20px 0;
+}
+
+.set-time .activity {
+    background: #d9d9d9;
+    border-radius: 0.1875rem;
+    padding: 10px;
+}
+
+.set-time .activity h2 {
+    margin: 0 0 5px;
+    font-weight: normal;
+}
+
+.set-time .time-controls {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.set-time .time-controls button {
+    background: none;
+    border: none;
+    font-weight: bold;
+    cursor: pointer;
+}
+
+.set-time .time-summary {
+    background: #d9d9d9;
+    padding: 5px;
+}
+
+.set-time .time-summary p {
+    margin: 0;
+}
+
+.set-time .planner-button {
+    display: block;
+    margin: 1rem auto;
+}
+
+.set-time .calendar-back {
+    display: block;
+    width: fit-content;
+    margin: 0 auto 1rem;
+    text-decoration: underline;
+}

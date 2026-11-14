@@ -24,3 +24,39 @@ body {
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
+
+.planner-page {
+  width: 100%;
+  max-width: 33rem;
+  min-height: 100dvh;
+  margin-inline: auto;
+  padding: 1.5rem clamp(1rem, 5.6vw, 1.75rem) 2.5rem;
+  background: #fff;
+  color: #171717;
+  font-family: var(--font-geist-sans), Arial, sans-serif;
+}
+
+.planner-page :is(button, a, input, select, textarea):focus-visible {
+  outline: 2px solid #282828;
+  outline-offset: 3px;
+}
+
+.planner-button {
+  min-height: 2.75rem;
+  padding: 0.5rem 1rem;
+  border: 1px solid #d6d6d6;
+  border-radius: 0.25rem;
+  background: #e4e4e4;
+  font-weight: 650;
+}
+
+.planner-button:not(:disabled):hover {
+  background: #d9d9d9;
+  cursor: pointer;
+}
+
+@media (min-width: 48rem) {
+  .planner-page {
+    padding-top: 2.5rem;
+  }
+}
