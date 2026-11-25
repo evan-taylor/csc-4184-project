@@ -165,6 +165,11 @@ export default function SetTime() {
     const remainingTime = freeTime - plannedTime;
 
     function ChangeTime(i: number, amount: number) {
+        
+        if (amount > remainingTime && amount > 0){
+            return;
+        }
+
         setActivities(prev => prev.map((activity, j) => {
             if (j === i) {
                 return {...activity, time: Math.max(0, activity.time + amount)};
