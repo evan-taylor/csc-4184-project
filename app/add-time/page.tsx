@@ -195,7 +195,15 @@ export default function SetTime() {
                                 -
                             </button>
 
-                            <span>{activity.time} min</span>
+                            <input 
+                                type = "number" 
+                                min = "0" 
+                                value = {activity.time} 
+                                onChange={(e) => ChangeTime(index, Number(e.target.value) - activity.time)}>
+
+                            </input>
+
+                            <span> min</span>
 
                             <button onClick={() => ChangeTime(index, 5)}>
                                 +
