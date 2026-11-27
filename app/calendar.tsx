@@ -3,7 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { Fragment, useEffect, useSyncExternalStore } from "react";
+import { Fragment, useEffect, useState, useSyncExternalStore } from "react";
 import { dateKey, loadEvents, readStoredEvents, seedExampleEvents, type EventDetails } from "./calendar-events";
 
 const weekdayFormat = new Intl.DateTimeFormat("en-US", { weekday: "long" });
@@ -45,6 +45,12 @@ function timeInMinutes(time: string) {
   return hours * 60 + minutes;
 }
 
+function minutesToTime(minutes: number) {
+  const hours = Math.floor(minutes / 60);
+  const mins = minutes % 60;
+  return `${hours.toString().padStart(2, "0")}:${mins.toString().padStart(2, "0")}`;
+}
+
 function timeRange(start: string, end: string) {
   const format = (time: string) => timeFormat.format(new Date(`2000-01-01T${time}:00`));
   return `${format(start)} – ${format(end)}`;
@@ -64,6 +70,36 @@ function subscribeToStorage(notify: () => void) {
   return () => window.removeEventListener("storage", notify);
 }
 
+function swapEvents(all: EventDetails[], idA: string, idB: string) {
+  const a = all.find((e) => e.id === idA);
+  const b = all.find((e) => e.id === idB);
+  if (!a || !b) return null;
+
+  const [first, second] = a.startTime <= b.startTime ? [a, b] : [b, a];
+
+  const firstLength = timeInMinutes(first.endTime) - timeInMinutes(first.startTime);
+  const secondLength = timeInMinutes(second.endTime) - timeInMinutes(second.startTime);
+  const gap = Math.max(0, timeInMinutes(second.startTime) - timeInMinutes(first.endTime));
+
+  const secondStart = timeInMinutes(first.startTime);
+  const secondEnd = secondStart + secondLength;
+
+  const firstStart = secondEnd + gap;
+  const firstEnd = firstStart + firstLength;
+
+  if (firstEnd >= 24 * 60) return null;
+
+  return all.map((e) => {
+    if (e.id === second.id) {
+      return { ...e, startTime: minutesToTime(secondStart), endTime: minutesToTime(secondEnd) };
+    }
+    if (e.id === first.id) {
+      return { ...e, startTime: minutesToTime(firstStart), endTime: minutesToTime(firstEnd) };
+    }
+    return e;
+  });
+}
+
 const getToday = () => dateKey(new Date());
 const serverSnapshot = () => null;
 
@@ -71,6 +107,8 @@ export default function Calendar() {
   const query = useSearchParams();
   const today = useSyncExternalStore(subscribeToStorage, getToday, serverSnapshot);
   const storedEvents = useSyncExternalStore(subscribeToStorage, readStoredEvents, serverSnapshot);
+
+  const [swappingId, setSwappingId] = useState<string | null>(null);
 
   useEffect(() => {
     if (today) seedExampleEvents(today);
@@ -84,6 +122,22 @@ export default function Calendar() {
   const events = loadEvents(storedEvents, today)
     .filter((event) => occursOn(event, selectedDate, selectedKey))
     .sort((a, b) => a.startTime.localeCompare(b.startTime));
+
+    const handleSwap = (otherId: string) => {
+    if (!swappingId) return;
+
+    const updated = swapEvents(loadEvents(storedEvents, today), swappingId, otherId);
+
+    if (updated) {
+      localStorage.setItem("events", JSON.stringify(updated));
+      window.dispatchEvent(new Event("storage"));
+    } else {
+      alert("Not enough room in the day to swap these events.");
+    }
+    setSwappingId(null);
+  };
+
+  const swapOptions = events.filter((event) => event.id !== swappingId);
 
   const schedule = [];
   let busyUntil = "";
@@ -121,16 +175,23 @@ export default function Calendar() {
                   </span>
                 </li>
               )}
-              <li>
+              <li className="planner-event-row">
                 <Link
                   className="planner-card planner-event"
                   href={`/event-details/${encodeURIComponent(event.id)}`}
                 >
                   <span className="planner-title">{event.title}</span>
-                  <Image className="planner-options" src="/calendar/event-options.svg" alt="" width={59} height={16} />
                   <span className="planner-details">{timeRange(event.startTime, event.endTime)}</span>
                   {event.location && <span className="planner-details">{event.location}</span>}
                 </Link>
+
+                <button
+                  className="planner-swap-button"
+                  aria-label={`Swap ${event.title}`}
+                  onClick={() => setSwappingId(event.id)}
+                >
+                  ⇅ Swap
+                </button>
               </li>
             </Fragment>
           ))}
@@ -140,8 +201,6 @@ export default function Calendar() {
       )}
 
       <div className="planner-actions">
-       {/* <Link className="planner-button planner-plan" href="/add_activity">+ Plan My Evening</Link>  */}
-
        <button className="planner-button planner-plan" onClick={() => { sessionStorage.setItem("selectedDate", selectedKey); window.location.href = "/add_activity";}}>
           + Plan My Evening
       </button>
@@ -151,6 +210,41 @@ export default function Calendar() {
           {selectedKey !== today && <Link href="/">Back to today</Link>}
         </div>
       </div>
+      {swappingId && (
+        <div className="planner-popup-background" onClick={() => setSwappingId(null)}>
+          <div
+            className="planner-popup"
+            role="dialog"
+            aria-modal="true"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {swapOptions.length > 0 ? (
+              <>
+                <h2>What event would you like to swap with?</h2>
+                {swapOptions.map((event) => (
+                  <button
+                    key={event.id}
+                    className="planner-button"
+                    onClick={() => handleSwap(event.id)}
+                  >
+                    {event.title} ({timeRange(event.startTime, event.endTime)})
+                  </button>
+                ))}
+                <button className="planner-button" onClick={() => setSwappingId(null)}>
+                  Cancel
+                </button>
+              </>
+            ) : (
+              <>
+                <h2>No events to swap with</h2>
+                <button className="planner-button" onClick={() => setSwappingId(null)}>
+                  Close
+                </button>
+              </>
+            )}
+          </div>
+        </div>
+      )}
     </main>
   );
 }
