@@ -1,7 +1,7 @@
 "use client";
 
 import "./page.css";
-import { useState, useEffect } from "react";
+import { useState, useEffect, act } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 
@@ -15,70 +15,64 @@ type Activity = {
 
 
 function AvailableTime(events: EventDetails[], date: string) {
-    const Start = 0 ;
-    const End = 24 * 60; 
+    const freeEvent = FindFreeTime(events, date);
 
-    const busy = events.filter(event => event.date === date).map(event => ({
-            start: Math.max(Start, HoursToMin(event.startTime)),
-            end: Math.min(End, HoursToMin(event.endTime))
-        }))
-        .filter(event => event.end > event.start)
-        .sort((a, b) => a.start - b.start);
-
-    let busyMinutes = 0;
-    let lastEnd = Start;
-
-    for (const event of busy) {
-        const start = Math.max(event.start, lastEnd);
-
-        if (event.end > start) {
-            busyMinutes += event.end - start;
-        }
-
-        lastEnd = Math.max(lastEnd, event.end);
+    if (!freeEvent) {
+        return 0;
     }
 
-    return End - Start - busyMinutes;
+    const start = HoursToMin(freeEvent.startTime);
+    const end = HoursToMin(freeEvent.endTime);
+
+    return Math.max(0, end - start);
 }
 
-
+function FindFreeTime(events: EventDetails[], date: string) {
+    return events
+        .filter(event =>
+            event.date === date &&
+            event.title === "Free Time"
+        )
+        .filter(event =>
+            HoursToMin(event.endTime) > HoursToMin(event.startTime)
+        )
+        .sort((a, b) =>
+            HoursToMin(a.startTime) - HoursToMin(b.startTime)
+        )[0];
+}
 
 function SaveActivities(activities: Activity[], date: string) {
     const stored = readStoredEvents();
     const events = loadEvents(stored, date);
 
-    const Start = 0 * 60 ;
-    const End = 24 * 60;
+    const freeEvent = FindFreeTime(events, date);
 
-    const busy = events
-        .filter(event => event.date === date)
-        .map(event => ({
-            start: HoursToMin(event.startTime),
-            end: HoursToMin(event.endTime)
-        }))
-        .sort((a, b) => a.start - b.start);
+    if(!freeEvent){
+        alert("No event named Free Time found");
+        return false;
+    }
 
-    let start = Start;
+    let start = HoursToMin(freeEvent.startTime);
+    let end = HoursToMin(freeEvent.endTime);
+
+    const availabeTime = end - start;
+    
+    const plannedTime = activities.reduce((total, activity) => total + activity.time, 0);
+
+    if (plannedTime > availabeTime){
+        const decrease = plannedTime - availabeTime;
+        
+        alert(`Not enought free time. Decrese by ${decrease} minutes`);
+        return false;
+    }
     const newEvents: EventDetails[] = [];
 
     for (const activity of activities) {
 
-        for (const event of busy) {
-            if (start + activity.time <= event.start) {
-                break;
-            }
-
-            if (start < event.end && start + activity.time > event.start) {
-                start = event.end;
-            }
+        if (activity.time <= 0){
+            continue;
         }
-
-        if (start + activity.time > End) {
-            const t = start + activity.time - End;
-            alert(`Not enough free time. Decrease by ${t} minutes`);
-            return false;
-        }
-
+ 
         newEvents.push({
             id: crypto.randomUUID(),
             date,
@@ -93,9 +87,23 @@ function SaveActivities(activities: Activity[], date: string) {
         start += activity.time;
     }
 
+    const storedEvents: EventDetails[] = stored ? JSON.parse(stored) : [];
+
+    const updatedEvents = storedEvents.filter(
+        event => event.id !== freeEvent.id
+    );
+
+    if (start < end) {
+        updatedEvents.push({
+            ...freeEvent,
+            startTime: MinToHour(start)
+        });
+    }
+
+
     localStorage.setItem(
         "events",
-        JSON.stringify([...events, ...newEvents])
+        JSON.stringify([...updatedEvents, ...newEvents])
     );
 
     return true;
@@ -162,11 +170,13 @@ export default function SetTime() {
 
     const plannedTime = activities.reduce((total, activity) => total + activity.time, 0);
 
-    const remainingTime = freeTime - plannedTime;
+    const remainingTime = Math.max(0, freeTime - plannedTime);
+
+    const decrease = Math.max(0, plannedTime - freeTime);
 
     function ChangeTime(i: number, amount: number) {
         
-        if (amount > remainingTime && amount > 0){
+        if (!Number.isFinite(amount)){
             return;
         }
 
@@ -226,6 +236,13 @@ export default function SetTime() {
                 <p>
                     Remaining Free Time: {remainingTime} min
                 </p>
+
+                {decrease > 0 && (
+                    <p style={{ color: "red" }}>
+                        Not enough free time. Decrease by {decrease} minutes.
+                    </p>
+                )}
+    
             </div>
 
             <button className="planner-button" onClick={() => ArrangeEvening(activities, router)}>
