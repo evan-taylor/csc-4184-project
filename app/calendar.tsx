@@ -28,7 +28,10 @@ function getSelectedDate(value: string | null, today: string) {
   return new Date(`${today}T12:00:00`);
 }
 
-function occursOn(event: EventDetails, date: Date, key: string) {
+function occursOn(event: EventDetails, date: Date, key: string, excludedDates: string[] = []) {
+  // do not display an event on an excluded date
+  if(excludedDates.includes(key)) return false;
+
   if (event.date === key) return true;
   if (event.date > key) return false;
 
@@ -38,6 +41,10 @@ function occursOn(event: EventDetails, date: Date, key: string) {
   if (event.repeat === "weekdays") return weekday >= 1 && weekday <= 5;
 
   return event.repeat === "weekly" && new Date(`${event.date}T12:00:00`).getDay() === weekday;
+}
+
+function readStoredExceptions() {
+  return localStorage.getItem("eventExceptions");
 }
 
 function timeInMinutes(time: string) {
@@ -71,6 +78,7 @@ export default function Calendar() {
   const query = useSearchParams();
   const today = useSyncExternalStore(subscribeToStorage, getToday, serverSnapshot);
   const storedEvents = useSyncExternalStore(subscribeToStorage, readStoredEvents, serverSnapshot);
+  const storedExceptions = useSyncExternalStore(subscribeToStorage, readStoredEvents, serverSnapshot);
 
   useEffect(() => {
     if (today) seedExampleEvents(today);
@@ -78,11 +86,74 @@ export default function Calendar() {
 
   if (!today) return <main className="planner-page">Loading calendar…</main>;
 
+  // new: function to delete all events on the whole calendar
+  function handleDeleteAllEvents() {
+    const confirmed = window.confirm(
+      `Are you sure you want to delete ALL events on ${selectedKey}?\n` +
+      "This will remove events from every calendar date.\n" +
+      "This action cannot be undone."
+    );
+
+    // cancel was selected
+    if (!confirmed) return;
+
+    //const raw = localStorage.getItem("events");
+
+    const events: EventDetails[] = JSON.parse(localStorage.getItem("events") || "[]");
+
+    const exceptions: Record<string, string[]> = JSON.parse(localStorage.getItem("eventExceptions") || "{}");
+
+    // keep only recurring events
+    const remainingEvents = events.filter(
+      (event) =>
+        !(event.date === selectedKey &&
+          (event.repeat ?? "none") === "none"
+        )
+    );
+
+    // record recurring events to hide on this date
+    //const exceptionKey = "eventExceptions";
+    // const recurringEvents = events.filter(
+    //   (event) =>
+    //     event.repeat !== "none" &&
+    //     occursOn(event, selectedDate, selectedKey)
+    // );
+
+    // exclude recurring events only on the selected date
+    for (const event of events) {
+      if (event.repeat !== "none" && 
+        occursOn(event, selectedDate, selectedKey)
+      ) {
+        const excludedDates = exceptions[event.id] || [];
+
+        if (!excludedDates.includes(selectedKey)) {
+          exceptions[event.id] = [...excludedDates, selectedKey];
+        }
+      }
+    }
+
+    localStorage.setItem("events", JSON.stringify(remainingEvents));
+
+    localStorage.setItem("eventExceptions", JSON.stringify(exceptions));
+
+    // notify the calendar that its event data changed
+    window.dispatchEvent(new Event ("storage"));
+  }
+
   const selectedDate = getSelectedDate(query.get("date"), today);
   const selectedKey = dateKey(selectedDate);
+
+  let exceptions: Record<string, string[]> = {};
+
+  try {
+    exceptions = storedExceptions ? JSON.parse(storedExceptions) : {};
+  } catch {
+    exceptions = {};
+  }
+
   const heading = selectedKey === today ? "Today" : weekdayFormat.format(selectedDate);
   const events = loadEvents(storedEvents, today)
-    .filter((event) => occursOn(event, selectedDate, selectedKey))
+    .filter((event) => occursOn(event, selectedDate, selectedKey, exceptions[event.id] || []))
     .sort((a, b) => a.startTime.localeCompare(b.startTime));
 
   const schedule = [];
@@ -150,6 +221,15 @@ export default function Calendar() {
           <Link href={`/event/create?date=${selectedKey}`}>Add Event</Link>
           {selectedKey !== today && <Link href="/">Back to today</Link>}
         </div>
+
+        {/* Delete all events */}
+        <div className="mt-5 flex justify-center">
+          <button type="button" onClick={handleDeleteAllEvents} className="text-base font-semibold text-red-700 underline">
+            Delete All Events
+          </button>
+        </div>
+
+
       </div>
     </main>
   );
