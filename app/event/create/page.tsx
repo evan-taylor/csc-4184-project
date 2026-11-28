@@ -1,11 +1,44 @@
 "use client";
 
 import { useState, useSyncExternalStore } from "react";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { dateKey, getSelectedDate, getToday, loadEvents, readStoredEvents, saveEvents, serverSnapshot, subscribeToStorage, type EventDetails } from "../../calendar-events";
 
-type Repeat = EventDetails["repeat"];
+type Repeat = "none" | "daily" | "weekdays" | "weekly";
+
+interface EventDetails {
+  id: string;
+  date: string;
+  title: string;
+  startTime: string;
+  endTime: string;
+  location: string;
+  description: string;
+  repeat: Repeat;
+}
+
+const STORAGE_KEY = "events";
+
+function loadEvents(): EventDetails[] {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch {
+    return [];
+  }
+}
+
+function saveEvent(event: EventDetails) {
+  const events = loadEvents();
+  const index = events.findIndex((e) => e.id === event.id);
+
+  if (index >= 0) {
+    events[index] = event; // update existing event
+  } else {
+    events.push(event); // add new event
+  }
+
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(events));
+}
 
 const HOURS = Array.from({ length: 12 }, (_, i) => String(i + 1)); // 1 to 12 for the hour
 const MINUTES = Array.from({ length: 60 }, (_, i) => String(i).padStart(2, "0")); // 00 to 59 for minutes
@@ -107,14 +140,20 @@ function CreateEventForm({ date }: { date: string }) {
 
   function handleSave() {
     if (!canSave) return;
-    saveEvents([...loadEvents(readStoredEvents(), getToday()), { ...event, title: event.title.trim(), id: crypto.randomUUID() }]);
+    saveEvent({ ...event, id: crypto.randomUUID() });
+    window.dispatchEvent(new Event("storage"));
     router.push(`/?date=${event.date}&status=created`);
   }
 
   return (
     <div className="planner-page flex flex-col gap-4">
-      <Link href={`/?date=${date}`} className="w-fit underline">← Back to calendar</Link>
-      <h1 className="text-2xl font-semibold">Create event</h1>
+      <button
+        onClick={() => router.back()}
+        className="planner-button self-end"
+        aria-label="Close"
+      >
+        Close
+      </button>
 
       <label className="flex flex-col gap-1">
         Event Title
@@ -194,11 +233,13 @@ function CreateEventForm({ date }: { date: string }) {
   );
 }
 
+const subscribe = () => () => {};
+function getDate() {
+  const param = new URLSearchParams(window.location.search).get("date");
+  return param && /^\d{4}-\d{2}-\d{2}$/.test(param) ? param : new Date().toLocaleDateString("en-CA");
+}
+
 export default function CreateEventPage() {
-  const date = useSyncExternalStore(
-    subscribeToStorage,
-    () => dateKey(getSelectedDate(new URLSearchParams(window.location.search).get("date"), getToday())),
-    serverSnapshot,
-  );
-  return date ? <CreateEventForm key={date} date={date} /> : <main className="planner-page">Loading event form…</main>;
+  const date = useSyncExternalStore(subscribe, getDate, () => null);
+  return date ? <CreateEventForm date={date} key={date} /> : null;
 }

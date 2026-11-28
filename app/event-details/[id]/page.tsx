@@ -1,96 +1,203 @@
 "use client";
 
-import Link from "next/link";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
-import {
-  dateKey, eventsOnDay, getSelectedDate, getToday, loadEvents, loadExceptions, readStoredEvents,
-  readStoredExceptions, saveEvents, timeRange, type EventDetails,
-} from "../../calendar-events";
-import "../../calendar.css";
+import { loadExceptions, readStoredExceptions } from "../../calendar-events";
 
-const formatDate = new Intl.DateTimeFormat("en-US", {
-  weekday: "long", month: "short", day: "numeric",
-});
+type Repeat = "none" | "daily" | "weekdays" | "weekly";
 
-export default function EventDetailsPage({ params }: { params: Promise<{ id: string }> }) {
+interface EventDetails {
+  id: string;
+  date: string;
+  title: string;
+  startTime: string;
+  endTime: string;
+  location: string;
+  description: string;
+  repeat: Repeat;
+}
+
+const STORAGE_KEY = "events";
+
+// Load events from localStorage
+function loadEvents(): EventDetails[] {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch {
+    return [];
+  }
+}
+
+// Find the event that matches the ID in the URL
+function getEvent(id: string): EventDetails | undefined {
+  return loadEvents().find((e) => e.id === id);
+}
+
+// Format time from "09:00" to "9:00 AM"
+function formatTime(time: string): string {
+  const [hourString, minute] = time.split(":");
+  const hour24 = Number(hourString);
+
+  const period = hour24 < 12 ? "AM" : "PM";
+  const hour12 = hour24 % 12 || 12;
+
+  return `${hour12}:${minute} ${period}`;
+}
+
+// Format date from YYYY-MM-DD to MM-DD-YY
+function formatDate(date: string): string {
+  const [year, month, day] = date.split("-");
+  return `${month}-${day}-${year.slice(-2)}`;
+}
+
+export default function EventDetailsPage({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}) {
   const router = useRouter();
-  const dialog = useRef<HTMLDialogElement>(null);
-  const [details, setDetails] = useState<{ event?: EventDetails; date: string }>();
+
+  const [event, setEvent] = useState<EventDetails | null>(null);
+  const [loaded, setLoaded] = useState(false);
+  const [selectedDate, setSelectedDate] = useState("");
 
   useEffect(() => {
-    params.then(({ id }) => {
-      const today = getToday();
-      const events = loadEvents(readStoredEvents(), today);
-      const selected = new URLSearchParams(window.location.search).get("date");
-      const event = events.find((item) => item.id === id);
-      const date = dateKey(getSelectedDate(selected, event?.date ?? today));
-      const onCalendar = eventsOnDay(events, date, loadExceptions(readStoredExceptions()));
-      setDetails({ date, event: onCalendar.find((item) => item.id === id) });
-    });
+    async function loadEvent() {
+      const { id } = await params;
+      const foundEvent = getEvent(id);
+
+      setEvent(foundEvent ?? null);
+      setSelectedDate(new URLSearchParams(window.location.search).get("date") || foundEvent?.date || "");
+      setLoaded(true);
+    }
+
+    loadEvent();
   }, [params]);
 
-  if (!details) return <main className="planner-page">Loading event…</main>;
-  const { event, date } = details;
+  // Wait for localStorage event data
+  if (!loaded) {
+    return null;
+  }
 
-  if (!event) return (
-    <main className="planner-page">
-      <p>This event is no longer on the calendar for this day.</p>
-      <Link className="underline" href={`/?date=${date}`}>Back to calendar</Link>
-    </main>
-  );
+  // Event was not found
+  if (!event) {
+    return (
+      <div className="planner-page">
+        <p>Event not found.</p>
 
-  const recurring = !!event.repeat && event.repeat !== "none";
+        <button
+          onClick={() => router.push("/")}
+          className="planner-button mt-4"
+        >
+          Back to Calendar
+        </button>
+      </div>
+    );
+  }
+
+  function handleEdit() {
+    if (!event) return;
+
+    router.push(`/event/${encodeURIComponent(event.id)}/edit?date=${selectedDate}`);
+  }
 
   function handleDelete() {
     if (!event) return;
-    const events = loadEvents(readStoredEvents(), getToday());
-    const exceptions = loadExceptions(readStoredExceptions());
-    if (recurring && !exceptions[event.id]?.includes(date)) {
-      exceptions[event.id] = [...(exceptions[event.id] ?? []), date];
+
+    const recurring = event.repeat && event.repeat !== "none";
+    const prompt = recurring
+      ? `Delete "${event.title}" on ${formatDate(selectedDate)}? The other dates will stay on the calendar.`
+      : `Delete "${event.title}" from your calendar?`;
+    if (!window.confirm(prompt)) return;
+
+    if (recurring) {
+      const exceptions = loadExceptions(readStoredExceptions());
+      const dates = new Set(exceptions[event.id] ?? []);
+      dates.add(selectedDate);
+      localStorage.setItem("eventExceptions", JSON.stringify({ ...exceptions, [event.id]: [...dates] }));
+    } else {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(loadEvents().filter((savedEvent) => savedEvent.id !== event.id)));
     }
-    saveEvents(recurring ? events : events.filter((item) => item.id !== event.id), exceptions);
-    router.replace(`/?date=${date}&status=deleted`);
+
+    window.dispatchEvent(new Event("storage"));
+    router.replace(`/?date=${selectedDate}&status=deleted`);
+  }
+
+  function handleBack() {
+    router.back();
   }
 
   return (
-    <main className="planner-page">
-      <Link className="underline" href={`/?date=${date}`}>← Back to calendar</Link>
-      <h1 className="mt-6 text-2xl font-semibold">{event.title}</h1>
-      <p className="mb-4">{formatDate.format(new Date(`${date}T12:00:00`))}</p>
-      <dl className="space-y-2 rounded-sm bg-[#ffe3e3] p-4">
-        <div>
-          <dt className="font-semibold">Time</dt>
-          <dd>{timeRange(event.startTime, event.endTime)}</dd>
+    <div className="planner-page">
+
+      {/* Header */}
+      <div className="grid grid-cols-[1fr_auto_1fr] items-center">
+
+        {/* Back button */}
+        <button
+          onClick={handleBack}
+          className="flex min-h-11 w-fit items-center gap-1"
+        >
+          <span className="text-4xl font-light">‹</span>
+          <span className="text-lg">Back</span>
+        </button>
+
+        {/* Date */}
+        <div className="text-center">
+          <p className="text-xl">
+            {formatDate(selectedDate)}
+          </p>
         </div>
-        <div>
-          <dt className="font-semibold">Location</dt>
-          <dd className="break-words">{event.location || "No location provided"}</dd>
-        </div>
-        {event.description && (
-          <div>
-            <dt className="font-semibold">Description</dt>
-            <dd className="whitespace-pre-wrap break-words">{event.description}</dd>
-          </div>
-        )}
-      </dl>
-      <div className="mt-6 flex flex-wrap items-center gap-4">
-        <Link className="planner-button" href={`/event/${encodeURIComponent(event.id)}/edit?date=${date}`}>
-          {recurring ? "Edit repeating event" : "Edit event"}
-        </Link>
-        <button className="planner-delete" type="button" onClick={() => dialog.current?.showModal()}>
-          {recurring ? "Delete this occurrence" : "Delete event"}
+
+      </div>
+
+      {/* Event Details heading */}
+      <h1 className="mt-10 text-2xl font-bold">
+        Event Details
+      </h1>
+
+      {/* Event title */}
+      <h2 className="mb-4 mt-4 text-xl font-semibold">
+        {event.title}
+      </h2>
+
+      {/* Event information box */}
+      <div className="rounded-xs bg-[#ffe3e3] p-3">
+
+        {/* Event time */}
+        <p>
+          <span className="font-bold">Time: </span>
+          {formatTime(event.startTime)} to{" "}
+          {formatTime(event.endTime)}
+        </p>
+
+        {/* Event location */}
+        <p className="font-bold">
+          Location:
+        </p>
+
+        <p className="break-words">
+          {event.location || "No location provided"}
+        </p>
+
+      </div>
+
+      {/* Edit Event button */}
+      <div className="mt-8 flex flex-wrap items-center justify-center gap-4">
+        <button
+          onClick={handleEdit}
+          className="planner-button"
+        >
+          {event.repeat && event.repeat !== "none" ? "Edit repeating event →" : "Edit Event →"}
+        </button>
+
+        {/* Delete event */}
+        <button onClick={handleDelete} className="planner-button bg-red-100 text-red-700">
+            {event.repeat && event.repeat !== "none" ? "Delete this occurrence" : "Delete Event"}
         </button>
       </div>
 
-      <dialog className="planner-popup" ref={dialog} aria-labelledby="delete-heading">
-        <div className="planner-dialog-content">
-          <h2 id="delete-heading">Delete {event.title}?</h2>
-          <p>{recurring ? "Only this occurrence will be removed. The other dates stay on the calendar." : "This removes the event from your calendar."}</p>
-          <button className="planner-button" type="button" onClick={() => dialog.current?.close()} autoFocus>Cancel</button>
-          <button className="planner-button planner-danger" type="button" onClick={handleDelete}>Delete</button>
-        </div>
-      </dialog>
-    </main>
+    </div>
   );
 }

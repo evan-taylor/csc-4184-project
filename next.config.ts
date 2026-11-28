@@ -7,6 +7,14 @@ const nextConfig: NextConfig = {
   },
   cacheComponents: true,
   partialPrefetching: true,
+  webpack(config) {
+    config.module.rules.push({
+      test: /[/\\]app[/\\]globals\.css$/,
+      enforce: "pre",
+      use: "@tailwindcss/turbopack",
+    });
+    return config;
+  },
   turbopack: {
     rules: {
       "*.css": {
