@@ -78,7 +78,7 @@ export default function Calendar() {
   const query = useSearchParams();
   const today = useSyncExternalStore(subscribeToStorage, getToday, serverSnapshot);
   const storedEvents = useSyncExternalStore(subscribeToStorage, readStoredEvents, serverSnapshot);
-  const storedExceptions = useSyncExternalStore(subscribeToStorage, readStoredEvents, serverSnapshot);
+  const storedExceptions = useSyncExternalStore(subscribeToStorage, readStoredExceptions, serverSnapshot);
 
   useEffect(() => {
     if (today) seedExampleEvents(today);
