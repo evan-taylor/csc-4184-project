@@ -100,6 +100,32 @@ export default function EventDetailsPage({
     router.push(`/event/${encodeURIComponent(event.id)}/edit`);
   }
 
+  function handleDelete() {
+    if (!event) return;
+
+    const confirmed = window.confirm(
+        `Are you sure you want to permanently delete "${event.title}"?\n` +
+        "This action cannot be undone."
+    );
+
+    if (!confirmed) return;
+
+    const events = loadEvents();
+
+    const updatedEvents = events.filter(
+        (savedEvent) => savedEvent.id !== event.id
+    );
+
+    localStorage.setItem(
+        STORAGE_KEY,
+        JSON.stringify(updatedEvents)
+    );
+
+    window.dispatchEvent(new Event("storage"));
+
+    router.replace(`/?date=${event.date}`);
+  }
+
   function handleBack() {
     router.back();
   }
@@ -160,12 +186,17 @@ export default function EventDetailsPage({
       </div>
 
       {/* Edit Event button */}
-      <div className="mt-7 flex justify-center">
+      <div className="mt-8 flex flex-wrap items-center justify-center gap-4">
         <button
           onClick={handleEdit}
           className="planner-button"
         >
           Edit Event →
+        </button>
+
+        {/* Delete event */}
+        <button onClick={handleDelete} className="planner-button bg-red-100 text-red-700">
+            Delete Event
         </button>
       </div>
 
