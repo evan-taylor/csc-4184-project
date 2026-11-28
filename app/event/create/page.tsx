@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState, useSyncExternalStore } from "react";
 import { useRouter } from "next/navigation";
 
 type Repeat = "none" | "daily" | "weekdays" | "weekly";
@@ -76,6 +76,7 @@ function TimeSelect({
       <div className="flex items-center gap-1.5">
         <select
           className="w-16 min-w-0 rounded-xs bg-gray-100 py-2 pl-2.5 pr-1"
+          aria-label={`${label} hour`}
           value={hour12}
           onChange={(e) => handleChange(e.target.value, minute, period)}
         >
@@ -90,6 +91,7 @@ function TimeSelect({
 
         <select
           className="w-16 min-w-0 rounded-xs bg-gray-100 py-2 pl-2.5 pr-1"
+          aria-label={`${label} minute`}
           value={minute}
           onChange={(e) => handleChange(hour12, e.target.value, period)}
         >
@@ -102,6 +104,7 @@ function TimeSelect({
 
         <select
           className="w-16 min-w-0 rounded-xs bg-gray-100 py-2 pl-2.5 pr-1"
+          aria-label={`${label} AM or PM`}
           value={period}
           onChange={(e) => handleChange(hour12, minute, e.target.value)}
         >
@@ -113,12 +116,12 @@ function TimeSelect({
   );
 }
 
-export default function CreateEventPage() {
+function CreateEventForm({ date }: { date: string }) {
   const router = useRouter();
 
   const [event, setEvent] = useState<EventDetails>({
     id: "",
-    date: "",
+    date,
     title: "",
     startTime: "09:00",
     endTime: "10:00",
@@ -126,16 +129,6 @@ export default function CreateEventPage() {
     description: "",
     repeat: "none",
   });
-
-  useEffect(() => {
-    const paramDate = new URLSearchParams(window.location.search).get("date");
-    const validParam = paramDate && /^\d{4}-\d{2}-\d{2}$/.test(paramDate) ? paramDate : null;
-
-    setEvent((prev) => ({
-      ...prev,
-      date: validParam || new Date().toLocaleDateString("en-CA"),
-    }));
-  }, []);
 
   function update<K extends keyof EventDetails>(field: K, value: EventDetails[K]) {
     setEvent((prev) => ({ ...prev, [field]: value }));
@@ -148,7 +141,8 @@ export default function CreateEventPage() {
   function handleSave() {
     if (!canSave) return;
     saveEvent({ ...event, id: crypto.randomUUID() });
-    router.push(`/?date=${event.date}`);
+    window.dispatchEvent(new Event("storage"));
+    router.push(`/?date=${event.date}&status=created`);
   }
 
   return (
@@ -237,4 +231,15 @@ export default function CreateEventPage() {
       </button>
     </div>
   );
+}
+
+const subscribe = () => () => {};
+function getDate() {
+  const param = new URLSearchParams(window.location.search).get("date");
+  return param && /^\d{4}-\d{2}-\d{2}$/.test(param) ? param : new Date().toLocaleDateString("en-CA");
+}
+
+export default function CreateEventPage() {
+  const date = useSyncExternalStore(subscribe, getDate, () => null);
+  return date ? <CreateEventForm date={date} key={date} /> : null;
 }

@@ -2,9 +2,9 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Fragment, useEffect, useState, useSyncExternalStore } from "react";
-import { dateKey, loadEvents, readStoredEvents, seedExampleEvents, type EventDetails } from "./calendar-events";
+import { dateKey, loadEvents, readStoredEvents, seedExampleEvents, occursOn, loadExceptions, readStoredExceptions, timeInMinutes, type EventDetails } from "./calendar-events";
 
 const weekdayFormat = new Intl.DateTimeFormat("en-US", { weekday: "long" });
 const dateFormat = new Intl.DateTimeFormat("en-US", {
@@ -26,30 +26,6 @@ function getSelectedDate(value: string | null, today: string) {
     if (dateKey(date) === value) return date;
   }
   return new Date(`${today}T12:00:00`);
-}
-
-function occursOn(event: EventDetails, date: Date, key: string, excludedDates: string[] = []) {
-  // do not display an event on an excluded date
-  if(excludedDates.includes(key)) return false;
-
-  if (event.date === key) return true;
-  if (event.date > key) return false;
-
-  if (event.repeat === "daily") return true;
-
-  const weekday = date.getDay();
-  if (event.repeat === "weekdays") return weekday >= 1 && weekday <= 5;
-
-  return event.repeat === "weekly" && new Date(`${event.date}T12:00:00`).getDay() === weekday;
-}
-
-function readStoredExceptions() {
-  return localStorage.getItem("eventExceptions");
-}
-
-function timeInMinutes(time: string) {
-  const [hours, minutes] = time.split(":").map(Number);
-  return hours * 60 + minutes;
 }
 
 function minutesToTime(minutes: number) {
@@ -77,10 +53,14 @@ function subscribeToStorage(notify: () => void) {
   return () => window.removeEventListener("storage", notify);
 }
 
+function overlaps(a: EventDetails, b: EventDetails) {
+  return a.startTime < b.endTime && b.startTime < a.endTime;
+}
+
 function swapEvents(all: EventDetails[], idA: string, idB: string) {
   const a = all.find((e) => e.id === idA);
   const b = all.find((e) => e.id === idB);
-  if (!a || !b) return null;
+  if (!a || !b || overlaps(a, b)) return null;
 
   const [first, second] = a.startTime <= b.startTime ? [a, b] : [b, a];
 
@@ -111,6 +91,7 @@ const getToday = () => dateKey(new Date());
 const serverSnapshot = () => null;
 
 export default function Calendar() {
+  const router = useRouter();
   const query = useSearchParams();
   const today = useSyncExternalStore(subscribeToStorage, getToday, serverSnapshot);
   const storedEvents = useSyncExternalStore(subscribeToStorage, readStoredEvents, serverSnapshot);
@@ -124,98 +105,69 @@ export default function Calendar() {
 
   if (!today) return <main className="planner-page">Loading calendar…</main>;
 
-  // new: function to delete all events on the whole calendar
   function handleDeleteAllEvents() {
-    const confirmed = window.confirm(
-      `Are you sure you want to delete ALL events on ${selectedKey}?\n` +
-      "This will remove events from every calendar date.\n" +
-      "This action cannot be undone."
-    );
+    if (!window.confirm(`Clear all events on ${dateFormat.format(selectedDate)}? Events on other dates will stay on the calendar.`) || !today) return;
 
-    // cancel was selected
-    if (!confirmed) return;
+    const all = loadEvents(readStoredEvents(), today);
+    const latestExceptions = loadExceptions(readStoredExceptions());
+    const visible = all.filter((event) => occursOn(event, selectedDate, selectedKey, latestExceptions[event.id]));
+    const remove = new Set<string>();
 
-    //const raw = localStorage.getItem("events");
-
-    const events: EventDetails[] = JSON.parse(localStorage.getItem("events") || "[]");
-
-    const exceptions: Record<string, string[]> = JSON.parse(localStorage.getItem("eventExceptions") || "{}");
-
-    // keep only recurring events
-    const remainingEvents = events.filter(
-      (event) =>
-        !(event.date === selectedKey &&
-          (event.repeat ?? "none") === "none"
-        )
-    );
-
-    // record recurring events to hide on this date
-    //const exceptionKey = "eventExceptions";
-    // const recurringEvents = events.filter(
-    //   (event) =>
-    //     event.repeat !== "none" &&
-    //     occursOn(event, selectedDate, selectedKey)
-    // );
-
-    // exclude recurring events only on the selected date
-    for (const event of events) {
-      if (event.repeat !== "none" && 
-        occursOn(event, selectedDate, selectedKey)
-      ) {
-        const excludedDates = exceptions[event.id] || [];
-
-        if (!excludedDates.includes(selectedKey)) {
-          exceptions[event.id] = [...excludedDates, selectedKey];
-        }
+    for (const event of visible) {
+      if (!event.repeat || event.repeat === "none") {
+        remove.add(event.id);
+      } else {
+        latestExceptions[event.id] = [...(latestExceptions[event.id] ?? []), selectedKey];
       }
     }
 
-    localStorage.setItem("events", JSON.stringify(remainingEvents));
-
-    localStorage.setItem("eventExceptions", JSON.stringify(exceptions));
-
-    // notify the calendar that its event data changed
-    window.dispatchEvent(new Event ("storage"));
+    localStorage.setItem("events", JSON.stringify(all.filter((event) => !remove.has(event.id))));
+    localStorage.setItem("eventExceptions", JSON.stringify(latestExceptions));
+    window.dispatchEvent(new Event("storage"));
   }
 
   const selectedDate = getSelectedDate(query.get("date"), today);
   const selectedKey = dateKey(selectedDate);
 
-  let exceptions: Record<string, string[]> = {};
-
-  try {
-    exceptions = storedExceptions ? JSON.parse(storedExceptions) : {};
-  } catch {
-    exceptions = {};
-  }
+  const exceptions = loadExceptions(storedExceptions);
 
   const heading = selectedKey === today ? "Today" : weekdayFormat.format(selectedDate);
   const events = loadEvents(storedEvents, today)
     .filter((event) => occursOn(event, selectedDate, selectedKey, exceptions[event.id] || []))
     .sort((a, b) => a.startTime.localeCompare(b.startTime));
 
-    const handleSwap = (otherId: string) => {
+  const handleSwap = (otherId: string) => {
     if (!swappingId) return;
 
     const updated = swapEvents(loadEvents(storedEvents, today), swappingId, otherId);
 
-    if (updated) {
+    const otherEvents = events.filter((event) => event.id !== swappingId && event.id !== otherId);
+    const swapped = updated?.filter((event) => event.id === swappingId || event.id === otherId);
+    if (updated && !swapped?.some((event) => otherEvents.some((other) => overlaps(event, other)))) {
       localStorage.setItem("events", JSON.stringify(updated));
       window.dispatchEvent(new Event("storage"));
     } else {
-      alert("Not enough room in the day to swap these events.");
+      alert("That swap would cause an overlap. Try another event or edit the times.");
     }
     setSwappingId(null);
   };
 
-  const swapOptions = events.filter((event) => event.id !== swappingId);
+  const swapOptions = events.filter((event) => event.id !== swappingId && (!event.repeat || event.repeat === "none"));
 
+  const statusMessages = new Map([
+    ["created", "Event added."],
+    ["updated", "Event updated."],
+    ["deleted", "Event deleted."],
+    ["planned", "Evening activities added to the calendar."],
+  ]);
+  const message = statusMessages.get(query.get("status") ?? "");
   const schedule = [];
   let busyUntil = "";
   for (const event of events) {
     const gapStart = busyUntil;
     const gapMinutes = gapStart ? timeInMinutes(event.startTime) - timeInMinutes(gapStart) : 0;
-    schedule.push({ event, gapStart, gapMinutes });
+    const conflicts = events.filter((other) => other.id !== event.id && overlaps(event, other));
+    schedule.push({ event, gapStart, gapMinutes, conflicts });
     if (event.endTime > busyUntil) busyUntil = event.endTime;
   }
 
@@ -234,9 +186,11 @@ export default function Calendar() {
         </Link>
       </header>
 
+      {message && <p className="mb-3 rounded bg-green-50 p-2 text-green-900" role="status">{message}</p>}
+
       {events.length > 0 ? (
         <ol className="planner-agenda" aria-label="Daily schedule">
-          {schedule.map(({ event, gapStart, gapMinutes }) => (
+          {schedule.map(({ event, gapStart, gapMinutes, conflicts }) => (
             <Fragment key={event.id}>
               {gapMinutes > 0 && (
                 <li className="planner-card planner-free-time">
@@ -249,20 +203,25 @@ export default function Calendar() {
               <li className="planner-event-row">
                 <Link
                   className="planner-card planner-event"
-                  href={`/event-details/${encodeURIComponent(event.id)}`}
+                  href={`/event-details/${encodeURIComponent(event.id)}?date=${selectedKey}`}
                 >
                   <span className="planner-title">{event.title}</span>
                   <span className="planner-details">{timeRange(event.startTime, event.endTime)}</span>
                   {event.location && <span className="planner-details">{event.location}</span>}
+                  {conflicts.length > 0 && (
+                    <span className="planner-details font-semibold text-red-800">
+                      Overlaps with {conflicts.map((other) => other.title).join(", ")}
+                    </span>
+                  )}
                 </Link>
 
-                <button
+                {(!event.repeat || event.repeat === "none") && <button
                   className="planner-swap-button"
                   aria-label={`Swap ${event.title}`}
                   onClick={() => setSwappingId(event.id)}
                 >
                   ⇅ Swap
-                </button>
+                </button>}
               </li>
             </Fragment>
           ))}
@@ -272,23 +231,23 @@ export default function Calendar() {
       )}
 
       <div className="planner-actions">
-       <button className="planner-button planner-plan" onClick={() => { sessionStorage.setItem("selectedDate", selectedKey); window.location.href = "/add_activity";}}>
+        <button className="planner-button planner-plan" onClick={() => {
+          sessionStorage.setItem("selectedDate", selectedKey);
+          router.push(`/add_activity?date=${selectedKey}`);
+        }}>
           + Plan My Evening
-      </button>
+        </button>
 
         <div className="planner-links">
           <Link href={`/event/create?date=${selectedKey}`}>Add Event</Link>
           {selectedKey !== today && <Link href="/">Back to today</Link>}
         </div>
 
-        {/* Delete all events */}
-        <div className="mt-5 flex justify-center">
-          <button type="button" onClick={handleDeleteAllEvents} className="text-base font-semibold text-red-700 underline">
-            Delete All Events
+        {events.length > 0 && (
+          <button type="button" onClick={handleDeleteAllEvents} className="mt-5 text-base font-semibold text-red-700 underline">
+            Clear this day
           </button>
-        </div>
-
-
+        )}
       </div>
       {swappingId && (
         <div className="planner-popup-background" onClick={() => setSwappingId(null)}>

@@ -39,9 +39,9 @@ function PlanEvening(){
 
     function AddActivity(){
 
-        if (name){
+        if (name.trim()){
             setActivities([
-                ...activities, {name, selected: false}
+                ...activities, {name: name.trim(), selected: false}
             ]);
         }
         setName("");
@@ -62,13 +62,11 @@ function PlanEvening(){
 
     const router = useRouter();
 
-    const searchParams = useSearchParams();
-
-    const selectedDate = searchParams.get("date");
+    const selectedDate = useSearchParams().get("date");
 
     return (
         <main className="planner-page evening-planner">
-            <Link className="calendar-back" href="/">Back to Calendar</Link>
+            <Link className="calendar-back" href={selectedDate ? `/?date=${selectedDate}` : "/"}>Back to Calendar</Link>
             <div className="subtitle">
                 <h2> Choose Activities</h2>
             </div>
@@ -112,7 +110,7 @@ function PlanEvening(){
                 <h2> {selectedCount} Activities Selected </h2>
             </div>
             
-            <AddActivityButton title="Set Time ->" onClick={() => SetTime(activities, router)}/> 
+            <AddActivityButton title="Set Time ->" onClick={selectedCount ? () => SetTime(activities, router) : undefined}/>
 
         </main>
     )

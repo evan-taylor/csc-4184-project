@@ -1,7 +1,7 @@
 "use client";
 
-import { Suspense, useEffect, useState } from "react"
-import { useParams, useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 
 type Repeat = "none" | "daily" | "weekdays" | "weekly";
 
@@ -80,6 +80,7 @@ function TimeSelect({
       <div className="flex items-center gap-1.5">
         <select
           className="w-16 min-w-0 rounded-xs bg-gray-100 py-2 pl-2.5 pr-1"
+          aria-label={`${label} hour`}
           value={hour12}
           onChange={(e) => handleChange(e.target.value, minute, period)}
         >
@@ -94,6 +95,7 @@ function TimeSelect({
 
         <select
           className="w-16 min-w-0 rounded-xs bg-gray-100 py-2 pl-2.5 pr-1"
+          aria-label={`${label} minute`}
           value={minute}
           onChange={(e) => handleChange(hour12, e.target.value, period)}
         >
@@ -106,6 +108,7 @@ function TimeSelect({
 
         <select
           className="w-16 min-w-0 rounded-xs bg-gray-100 py-2 pl-2.5 pr-1"
+          aria-label={`${label} AM or PM`}
           value={period}
           onChange={(e) => handleChange(hour12, minute, e.target.value)}
         >
@@ -117,7 +120,7 @@ function TimeSelect({
   );
 }
 
-export default function EditEventPage({ params }: { params: any }) {
+export default function EditEventPage({ params }: { params: Promise<{ id: string }> }) {
   const router = useRouter();
 
   const [event, setEvent] = useState<EventDetails | null>(null);
@@ -145,7 +148,10 @@ export default function EditEventPage({ params }: { params: any }) {
   function handleSave() {
     if (!event || !canSave) return;
     saveEvent(event);
-    router.push("/");
+    window.dispatchEvent(new Event("storage"));
+    const selectedDate = new URLSearchParams(window.location.search).get("date");
+    const returnDate = event.repeat && event.repeat !== "none" ? selectedDate || event.date : event.date;
+    router.push(`/?date=${returnDate}&status=updated`);
   }
 
   if (!loaded) return null;
@@ -160,6 +166,10 @@ export default function EditEventPage({ params }: { params: any }) {
       >
         Close
       </button>
+      <h1 className="text-2xl font-semibold">Edit event</h1>
+      {event.repeat && event.repeat !== "none" && (
+        <p className="text-sm">Changes apply to every occurrence of this event.</p>
+      )}
 
       <label className="flex flex-col gap-1">
         Event Title
@@ -236,6 +246,6 @@ export default function EditEventPage({ params }: { params: any }) {
         Save Changes
       </button>
     </div>
-    
+
   );
 }

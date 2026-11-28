@@ -60,3 +60,30 @@ export function seedExampleEvents(today: string) {
     // The sample agenda can still be displayed when storage is unavailable.
   }
 }
+
+
+export function occursOn(event: EventDetails, date: Date, key: string, excludedDates: string[] = []) {
+  if (excludedDates.includes(key) || event.date > key) return false;
+  if (event.date === key || event.repeat === "daily") return true;
+
+  const weekday = date.getDay();
+  if (event.repeat === "weekdays") return weekday >= 1 && weekday <= 5;
+  return event.repeat === "weekly" && new Date(`${event.date}T12:00:00`).getDay() === weekday;
+}
+
+export function timeInMinutes(time: string) {
+  const [hours, minutes] = time.split(":").map(Number);
+  return hours * 60 + minutes;
+}
+
+export function readStoredExceptions() {
+  return localStorage.getItem("eventExceptions");
+}
+
+export function loadExceptions(raw: string | null): Record<string, string[]> {
+  try {
+    return JSON.parse(raw ?? "{}") ?? {};
+  } catch {
+    return {};
+  }
+}

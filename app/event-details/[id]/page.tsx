@@ -1,8 +1,8 @@
-
 "use client";
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { loadExceptions, readStoredExceptions } from "../../calendar-events";
 
 type Repeat = "none" | "daily" | "weekdays" | "weekly";
 
@@ -60,6 +60,7 @@ export default function EventDetailsPage({
 
   const [event, setEvent] = useState<EventDetails | null>(null);
   const [loaded, setLoaded] = useState(false);
+  const [selectedDate, setSelectedDate] = useState("");
 
   useEffect(() => {
     async function loadEvent() {
@@ -67,6 +68,7 @@ export default function EventDetailsPage({
       const foundEvent = getEvent(id);
 
       setEvent(foundEvent ?? null);
+      setSelectedDate(new URLSearchParams(window.location.search).get("date") || foundEvent?.date || "");
       setLoaded(true);
     }
 
@@ -97,33 +99,29 @@ export default function EventDetailsPage({
   function handleEdit() {
     if (!event) return;
 
-    router.push(`/event/${encodeURIComponent(event.id)}/edit`);
+    router.push(`/event/${encodeURIComponent(event.id)}/edit?date=${selectedDate}`);
   }
 
   function handleDelete() {
     if (!event) return;
 
-    const confirmed = window.confirm(
-        `Are you sure you want to permanently delete "${event.title}"?\n` +
-        "This action cannot be undone."
-    );
+    const recurring = event.repeat && event.repeat !== "none";
+    const prompt = recurring
+      ? `Delete "${event.title}" on ${formatDate(selectedDate)}? The other dates will stay on the calendar.`
+      : `Delete "${event.title}" from your calendar?`;
+    if (!window.confirm(prompt)) return;
 
-    if (!confirmed) return;
-
-    const events = loadEvents();
-
-    const updatedEvents = events.filter(
-        (savedEvent) => savedEvent.id !== event.id
-    );
-
-    localStorage.setItem(
-        STORAGE_KEY,
-        JSON.stringify(updatedEvents)
-    );
+    if (recurring) {
+      const exceptions = loadExceptions(readStoredExceptions());
+      const dates = new Set(exceptions[event.id] ?? []);
+      dates.add(selectedDate);
+      localStorage.setItem("eventExceptions", JSON.stringify({ ...exceptions, [event.id]: [...dates] }));
+    } else {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(loadEvents().filter((savedEvent) => savedEvent.id !== event.id)));
+    }
 
     window.dispatchEvent(new Event("storage"));
-
-    router.replace(`/?date=${event.date}`);
+    router.replace(`/?date=${selectedDate}&status=deleted`);
   }
 
   function handleBack() {
@@ -148,7 +146,7 @@ export default function EventDetailsPage({
         {/* Date */}
         <div className="text-center">
           <p className="text-xl">
-            {formatDate(event.date)}
+            {formatDate(selectedDate)}
           </p>
         </div>
 
@@ -191,12 +189,12 @@ export default function EventDetailsPage({
           onClick={handleEdit}
           className="planner-button"
         >
-          Edit Event →
+          {event.repeat && event.repeat !== "none" ? "Edit repeating event →" : "Edit Event →"}
         </button>
 
         {/* Delete event */}
         <button onClick={handleDelete} className="planner-button bg-red-100 text-red-700">
-            Delete Event
+            {event.repeat && event.repeat !== "none" ? "Delete this occurrence" : "Delete Event"}
         </button>
       </div>
 
