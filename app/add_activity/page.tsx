@@ -1,128 +1,77 @@
-"use client"
-import  "./page.css"
-import {useState, Suspense} from "react";
+"use client";
+
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { useSearchParams } from "next/navigation";
+import { Suspense, useRef, useState, useSyncExternalStore } from "react";
+import { dateKey, getSelectedDate, getToday, serverSnapshot, subscribeToStorage } from "../calendar-events";
+import { loadDraft, readDraft, saveDraft } from "../evening-plan";
+import "./page.css";
 
-type Activity = {
-    name: string;
-    selected: boolean;
-}
+function PlanEvening() {
+  const params = useSearchParams();
+  const today = useSyncExternalStore(subscribeToStorage, getToday, serverSnapshot);
+  const date = today ? dateKey(getSelectedDate(params.get("date"), today)) : "";
+  const draft = useSyncExternalStore(subscribeToStorage, () => readDraft(date), serverSnapshot);
+  const dialog = useRef<HTMLDialogElement>(null);
+  const [name, setName] = useState("");
 
-function AddActivityButton({ title, onClick }: {title : string; onClick?: () => void}){
-    return (
-        <button className="planner-button" onClick={onClick} disabled={!onClick}>
-             {title}
-        </button>
-    );
-}
+  if (!today) return <main className="planner-page">Loading evening planner…</main>;
 
-function CountActivity(i : number, 
-                        setActivities: React.Dispatch<React.SetStateAction<Activity[]>>
-){
-    setActivities(prev => prev.map((activity, j) => {
-    if (j === i){
-        return { ...activity, selected: !activity.selected};
-    }
-    return activity;
-    }));
-}
+  const activities = loadDraft(draft);
+  const selectedCount = activities.filter((activity) => activity.selected).length;
+  const trimmed = name.trim();
+  const duplicate = activities.some((activity) => activity.name.toLowerCase() === trimmed.toLowerCase());
 
-function SetTime(activities: Activity[], router: ReturnType<typeof useRouter>){
-    const selectedActivities = activities.filter( activity => activity.selected);
-    sessionStorage.setItem("selectedActivities", JSON.stringify(selectedActivities));
-    router.push("/add-time")
-}
-
-function PlanEvening(){
-
-    function AddActivity(){
-
-        if (name){
-            setActivities([
-                ...activities, {name, selected: false}
-            ]);
-        }
+  return (
+    <main className="planner-page evening-planner">
+      <Link className="calendar-back" href={`/?date=${date}`}>← Back to calendar</Link>
+      <h1 className="mb-2 text-2xl font-semibold">Choose activities</h1>
+      <p>Pick what you want to do. You’ll set each duration on the next screen.</p>
+      <p className="mt-1 text-sm">Have a fixed start time? <Link className="underline" href={`/event/create?date=${date}`}>Add an event</Link>.</p>
+      <div className="activity-list">
+        {activities.map((activity) => (
+          <label className="activity" key={activity.name}>
+            <input type="checkbox" checked={activity.selected} onChange={(event) => {
+              saveDraft(date, activities.map((item) =>
+                item.name === activity.name ? { ...item, selected: event.target.checked } : item));
+            }} />
+            {activity.name}
+          </label>
+        ))}
+      </div>
+      <button className="planner-button" type="button" onClick={() => {
         setName("");
-        setShowPopup(false);
-    }
+        dialog.current?.showModal();
+      }}>+ Add another activity</button>
 
-    const[activities, setActivities] = useState([
-        { name: "Walk", selected: false},
-        { name: "Dinner", selected: false},
-        { name: "Reading", selected: false}
-    ]);
+      <dialog className="popup" ref={dialog} aria-labelledby="add-activity-heading">
+        <form onSubmit={(event) => {
+          event.preventDefault();
+          if (!trimmed || duplicate) return;
+          saveDraft(date, [...activities, { name: trimmed, selected: true, minutes: 30 }]);
+          dialog.current?.close();
+        }}>
+          <h2 className="font-semibold" id="add-activity-heading">Add activity</h2>
+          <label className="block" htmlFor="activity-name">Activity name</label>
+          <input id="activity-name" value={name} onChange={(event) => setName(event.target.value)} />
+          {duplicate && <p className="text-sm text-red-800">That activity is already listed.</p>}
+          <button className="planner-button" type="submit" disabled={!trimmed || duplicate}>Add activity</button>
+          <button className="planner-button" type="button" onClick={() => dialog.current?.close()}>Cancel</button>
+        </form>
+      </dialog>
 
-    const [name, setName] = useState("");
-
-    const [showPopup, setShowPopup] = useState(false);
-
-    const selectedCount = activities.filter(activity => activity.selected).length;
-
-    const router = useRouter();
-
-    const searchParams = useSearchParams();
-
-    const selectedDate = searchParams.get("date");
-
-    return (
-        <main className="planner-page evening-planner">
-            <Link className="calendar-back" href="/">Back to Calendar</Link>
-            <div className="subtitle">
-                <h2> Choose Activities</h2>
-            </div>
-
-            <div className="activity-list">
-                {activities.map((activity, index) => (
-                    <label className="activity" key={index}>
-                        <input type="checkbox" checked={activity.selected} onChange={() => CountActivity(index, setActivities)} />
-                        {activity.name}
-                    </label>
-                ))}
-            </div>
-
-            {showPopup && (
-                <div className="popup-background">
-                    <div className="popup">
-                        <h3>Add Activity</h3>
-
-                        <input
-                            type="text"
-                            placeholder="Enter Activity Name"
-                            value={name}
-                            onChange={(e) => setName(e.target.value)}
-                        />
-
-                        <button className="planner-button" onClick={AddActivity}>
-                            Add
-                        </button>
-
-                        <button className="planner-button" onClick={() => setShowPopup(false)}>
-                            Cancel
-                        </button>
-                    </div>
-                </div>
-            )}
-
-
-            <AddActivityButton title="+ Add Another Activity" onClick={() => setShowPopup(true)}/>
-
-            <div className="subtitle">
-                <h2> {selectedCount} Activities Selected </h2>
-            </div>
-            
-            <AddActivityButton title="Set Time ->" onClick={() => SetTime(activities, router)}/> 
-
-        </main>
-    )
+      <p className="mt-5" aria-live="polite">{selectedCount} {selectedCount === 1 ? "activity" : "activities"} selected</p>
+      {selectedCount > 0 && (
+        <Link className="planner-button w-fit" href={`/add-time?date=${date}`}>Set time →</Link>
+      )}
+    </main>
+  );
 }
-
 
 export default function Page() {
-    return (
-        <Suspense fallback={<p>Loading...</p>}>
-            <PlanEvening />
-        </Suspense>
-    );
+  return (
+    <Suspense fallback={<main className="planner-page">Loading evening planner…</main>}>
+      <PlanEvening />
+    </Suspense>
+  );
 }

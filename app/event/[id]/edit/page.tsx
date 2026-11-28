@@ -1,48 +1,11 @@
 "use client";
 
-import { Suspense, useEffect, useState } from "react"
-import { useParams, useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { dateKey, getSelectedDate, getToday, loadEvents, readStoredEvents, saveEvents, type EventDetails } from "../../../calendar-events";
 
-type Repeat = "none" | "daily" | "weekdays" | "weekly";
-
-interface EventDetails {
-  id: string;
-  date: string;
-  title: string;
-  startTime: string;
-  endTime: string;
-  location: string;
-  description: string;
-  repeat: Repeat;
-}
-
-const STORAGE_KEY = "events";
-
-function loadEvents(): EventDetails[] {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    return raw ? JSON.parse(raw) : [];
-  } catch {
-    return [];
-  }
-}
-
-function saveEvent(event: EventDetails) {
-  const events = loadEvents();
-  const index = events.findIndex((e) => e.id === event.id);
-
-  if (index >= 0) {
-    events[index] = event;
-  } else {
-    events.push(event);
-  }
-
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(events));
-}
-
-function getEvent(id: string): EventDetails | undefined {
-  return loadEvents().find((e) => e.id === id);
-}
+type Repeat = EventDetails["repeat"];
 
 const HOURS = Array.from({ length: 12 }, (_, i) => String(i + 1));
 const MINUTES = Array.from({ length: 60 }, (_, i) => String(i).padStart(2, "0"));
@@ -80,6 +43,7 @@ function TimeSelect({
       <div className="flex items-center gap-1.5">
         <select
           className="w-16 min-w-0 rounded-xs bg-gray-100 py-2 pl-2.5 pr-1"
+          aria-label={`${label} hour`}
           value={hour12}
           onChange={(e) => handleChange(e.target.value, minute, period)}
         >
@@ -94,6 +58,7 @@ function TimeSelect({
 
         <select
           className="w-16 min-w-0 rounded-xs bg-gray-100 py-2 pl-2.5 pr-1"
+          aria-label={`${label} minute`}
           value={minute}
           onChange={(e) => handleChange(hour12, e.target.value, period)}
         >
@@ -106,6 +71,7 @@ function TimeSelect({
 
         <select
           className="w-16 min-w-0 rounded-xs bg-gray-100 py-2 pl-2.5 pr-1"
+          aria-label={`${label} AM or PM`}
           value={period}
           onChange={(e) => handleChange(hour12, minute, e.target.value)}
         >
@@ -117,16 +83,19 @@ function TimeSelect({
   );
 }
 
-export default function EditEventPage({ params }: { params: any }) {
+export default function EditEventPage({ params }: { params: Promise<{ id: string }> }) {
   const router = useRouter();
 
   const [event, setEvent] = useState<EventDetails | null>(null);
   const [loaded, setLoaded] = useState(false);
+  const [calendarDate, setCalendarDate] = useState("");
 
   useEffect(() => {
-    // Read the id directly from the params prop instead
-    Promise.resolve(params).then((resolvedParams) => {
-      setEvent(getEvent(resolvedParams.id) ?? null);
+    params.then(({ id }) => {
+      const found = loadEvents(readStoredEvents(), getToday()).find((item) => item.id === id) ?? null;
+      setEvent(found);
+      const selectedDate = new URLSearchParams(window.location.search).get("date");
+      setCalendarDate(dateKey(getSelectedDate(selectedDate, found?.date ?? getToday())));
       setLoaded(true);
     });
   }, [params]);
@@ -144,22 +113,29 @@ export default function EditEventPage({ params }: { params: any }) {
 
   function handleSave() {
     if (!event || !canSave) return;
-    saveEvent(event);
-    router.push("/");
+    const events = loadEvents(readStoredEvents(), getToday());
+    if (!events.some((item) => item.id === event.id)) {
+      setEvent(null);
+      return;
+    }
+    saveEvents(events.map((item) => item.id === event.id ? { ...event, title: event.title.trim() } : item));
+    const returnDate = !event.repeat || event.repeat === "none" ? event.date : calendarDate;
+    router.push(`/?date=${returnDate}&status=updated`);
   }
 
-  if (!loaded) return null;
-  if (!event) return <p className="planner-page">Event not found.</p>;
+  if (!loaded) return <main className="planner-page">Loading event…</main>;
+  if (!event) return (
+    <main className="planner-page">
+      <p>This event is no longer on the calendar.</p>
+      <Link className="underline" href={`/?date=${calendarDate}`}>Back to calendar</Link>
+    </main>
+  );
 
   return (
     <div className="planner-page flex flex-col gap-4">
-      <button
-        onClick={() => router.back()}
-        className="planner-button self-end"
-        aria-label="Close"
-      >
-        Close
-      </button>
+      <Link className="w-fit underline" href={`/event-details/${encodeURIComponent(event.id)}?date=${calendarDate}`}>← Back to details</Link>
+      <h1 className="text-2xl font-semibold">Edit event</h1>
+      {event.repeat && event.repeat !== "none" && <p className="text-sm">Changes apply to every occurrence of this event.</p>}
 
       <label className="flex flex-col gap-1">
         Event Title

@@ -1,10 +1,3 @@
-.evening-planner .subtitle{
-    margin: .5rem auto;
-    font-weight: bold;
-    text-align: left;
-}
-
-
 .evening-planner .planner-button {
     display: block;
     margin: 0.5rem auto;
@@ -22,11 +15,14 @@
     border-radius: 0.1875rem;
     display: flex;
     gap: 0.5rem;
+    min-height: 2.75rem;
+    align-items: center;
     padding: 10px;
     cursor: pointer;
 }
 
 .evening-planner .popup {
+    margin: auto;
     background: white;
     padding: 25px;
     width: 300px;
@@ -44,18 +40,8 @@
     border: 1px solid gray;
 }
 
-.evening-planner .popup-background {
-    position: fixed;
-    z-index: 1;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    background-color: rgba(0, 0, 0, 0.4);
-
-    display: flex;
-    justify-content: center;
-    align-items: center;
+.evening-planner .popup::backdrop {
+    background: rgba(0, 0, 0, 0.4);
 }
 
 .evening-planner .calendar-back {

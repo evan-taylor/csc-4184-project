@@ -1,253 +1,126 @@
 "use client";
 
-import "./page.css";
-import { useState, useEffect, act } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
+import { Suspense, useState, useSyncExternalStore } from "react";
+import {
+  dateKey, eventsOnDay, getSelectedDate, getToday, loadEvents, loadExceptions, minutesToTime,
+  readStoredEvents, readStoredExceptions, saveEvents, serverSnapshot, subscribeToStorage, timeRange,
+} from "../calendar-events";
+import { arrangeActivities, clearDraft, eveningSlots, loadDraft, readDraft, saveDraft } from "../evening-plan";
+import "./page.css";
 
-import { readStoredEvents, loadEvents } from "../calendar-events";
-import type { EventDetails } from "../calendar-events";
+function SetTime() {
+  const router = useRouter();
+  const params = useSearchParams();
+  const today = useSyncExternalStore(subscribeToStorage, getToday, serverSnapshot);
+  const date = today ? dateKey(getSelectedDate(params.get("date"), today)) : "";
+  const draft = useSyncExternalStore(subscribeToStorage, () => readDraft(date), serverSnapshot);
+  const stored = useSyncExternalStore(subscribeToStorage, readStoredEvents, serverSnapshot);
+  const exceptions = useSyncExternalStore(subscribeToStorage, readStoredExceptions, serverSnapshot);
+  const [saveError, setSaveError] = useState("");
 
-type Activity = {
-    name: string;
-    time: number;
-};
+  if (!today) return <main className="planner-page">Loading evening planner…</main>;
 
+  const allActivities = loadDraft(draft);
+  const activities = allActivities.filter((activity) => activity.selected);
+  const slots = eveningSlots(eventsOnDay(loadEvents(stored, today), date, loadExceptions(exceptions)));
+  const available = slots.reduce((sum, slot) => sum + slot.end - slot.start, 0);
+  const planned = activities.reduce((sum, activity) => sum + activity.minutes, 0);
+  const valid = activities.length > 0 && activities.every((activity) => activity.minutes > 0);
+  const plan = valid ? arrangeActivities(activities, slots) : null;
+  const issue = !activities.length
+    ? "Go back and choose at least one activity."
+    : !valid
+      ? "Give each selected activity at least one minute."
+      : planned > available
+        ? `Shorten your activities by at least ${planned - available} min.`
+        : !plan ? "The activities do not fit in the available gaps. Try a shorter duration." : "";
 
-function AvailableTime(events: EventDetails[], date: string) {
-    const freeEvent = FindFreeTime(events, date);
+  function changeTime(name: string, minutes: number) {
+    setSaveError("");
+    const next = Math.max(0, Math.min(24 * 60, Math.floor(minutes)));
+    saveDraft(date, allActivities.map((activity) => activity.name === name ? { ...activity, minutes: next } : activity));
+  }
 
-    if (!freeEvent) {
-        return 0;
+  function savePlan() {
+    if (!today || !plan) return;
+    const events = loadEvents(readStoredEvents(), today);
+    const latestSlots = eveningSlots(eventsOnDay(events, date, loadExceptions(readStoredExceptions())));
+    const updatedPlan = arrangeActivities(activities, latestSlots);
+    if (!updatedPlan) {
+      setSaveError("The calendar changed. Adjust the durations to fit the latest gaps.");
+      return;
     }
 
-    const start = HoursToMin(freeEvent.startTime);
-    const end = HoursToMin(freeEvent.endTime);
+    saveEvents([...events, ...updatedPlan.map(({ name, start, end }) => ({
+      id: crypto.randomUUID(),
+      date,
+      title: name,
+      startTime: start,
+      endTime: end,
+      location: "",
+      description: "",
+      repeat: "none" as const,
+    }))]);
+    clearDraft(date);
+    router.push(`/?date=${date}&status=planned`);
+  }
 
-    return Math.max(0, end - start);
-}
+  return (
+    <main className="planner-page set-time">
+      <Link className="calendar-back" href={`/add_activity?date=${date}`}>← Choose activities</Link>
+      <h1 className="mb-2 text-2xl font-semibold">Set activity durations</h1>
+      <p className="font-semibold">{available} min available this evening</p>
+      <p className="text-sm">The planner checks openings after 4:00 PM until Bedtime or 10:00 PM.</p>
+      <p className="text-sm">
+        {slots.length
+          ? slots.map((slot) => timeRange(minutesToTime(slot.start), minutesToTime(slot.end))).join(" · ")
+          : "There are no open time slots before bedtime."}
+      </p>
 
-function FindFreeTime(events: EventDetails[], date: string) {
-    return events
-        .filter(event =>
-            event.date === date &&
-            event.title === "Free Time"
-        )
-        .filter(event =>
-            HoursToMin(event.endTime) > HoursToMin(event.startTime)
-        )
-        .sort((a, b) =>
-            HoursToMin(a.startTime) - HoursToMin(b.startTime)
-        )[0];
-}
-
-function SaveActivities(activities: Activity[], date: string) {
-    const stored = readStoredEvents();
-    const events = loadEvents(stored, date);
-
-    const freeEvent = FindFreeTime(events, date);
-
-    if(!freeEvent){
-        alert("No event named Free Time found");
-        return false;
-    }
-
-    let start = HoursToMin(freeEvent.startTime);
-    let end = HoursToMin(freeEvent.endTime);
-
-    const availabeTime = end - start;
-    
-    const plannedTime = activities.reduce((total, activity) => total + activity.time, 0);
-
-    if (plannedTime > availabeTime){
-        const decrease = plannedTime - availabeTime;
-        
-        alert(`Not enought free time. Decrese by ${decrease} minutes`);
-        return false;
-    }
-    const newEvents: EventDetails[] = [];
-
-    for (const activity of activities) {
-
-        if (activity.time <= 0){
-            continue;
-        }
- 
-        newEvents.push({
-            id: crypto.randomUUID(),
-            date,
-            title: activity.name,
-            startTime: MinToHour(start),
-            endTime: MinToHour(start + activity.time),
-            location: "",
-            description: "",
-            repeat: "none"
-        });
-
-        start += activity.time;
-    }
-
-    const storedEvents: EventDetails[] = stored ? JSON.parse(stored) : [];
-
-    const updatedEvents = storedEvents.filter(
-        event => event.id !== freeEvent.id
-    );
-
-    if (start < end) {
-        updatedEvents.push({
-            ...freeEvent,
-            startTime: MinToHour(start)
-        });
-    }
-
-
-    localStorage.setItem(
-        "events",
-        JSON.stringify([...updatedEvents, ...newEvents])
-    );
-
-    return true;
-}
-
-function ArrangeEvening(activities:Activity[], router: ReturnType<typeof useRouter>) {
-    const selectedDate = sessionStorage.getItem("selectedDate");
-
-    if (selectedDate) {
-        const saved = SaveActivities(activities, selectedDate);
-        
-        if (saved){
-            router.push(`/?date=${selectedDate}`);
-        }
-    }
-}
-
-
-function MinToHour(minutes: number) {
-    const hours = Math.floor(minutes / 60);
-    const mins = minutes % 60;
-
-    return `${String(hours).padStart(2, "0")}:${String(mins).padStart(2, "0")}`;
-}
-
-function HoursToMin(time: string) {
-    const [hours, minutes] = time.split(":").map(Number);
-    return hours * 60 + minutes;
-}
-
-
-
-export default function SetTime() {
-
-    const [activities, setActivities] = useState<Activity[]>([]);
-
-    const[freeTime, setFreeTime] = useState(0);
-
-    const router = useRouter();
-
-    useEffect(() => {
-
-        const selectedDate = sessionStorage.getItem("selectedDate");
-
-        if (selectedDate) {
-            const stored = readStoredEvents();
-            const events = loadEvents(stored, selectedDate);
-
-            setFreeTime(AvailableTime(events, selectedDate));
-        }
-
-        const saved = sessionStorage.getItem("selectedActivities");
-
-        if (saved) {
-            const selected = JSON.parse(saved);
-
-            setActivities(selected.map((activity: { name: string }) => {
-                return {name: activity.name, time: 30};
-            }));
-        }
-    }, []);
-
-
-
-    const plannedTime = activities.reduce((total, activity) => total + activity.time, 0);
-
-    const remainingTime = Math.max(0, freeTime - plannedTime);
-
-    const decrease = Math.max(0, plannedTime - freeTime);
-
-    function ChangeTime(i: number, amount: number) {
-        
-        if (!Number.isFinite(amount)){
-            return;
-        }
-
-        setActivities(prev => prev.map((activity, j) => {
-            if (j === i) {
-                return {...activity, time: Math.max(0, activity.time + amount)};
-            }
-            return activity;
-        }));
-    }
-
-    return (
-        <main className="planner-page set-time">
-            <Link className="calendar-back" href="/add_activity">
-                Back
-            </Link>
-
-            <div className="subtitle">
-                <h2>How Long?</h2>
+      <div className="activity-list">
+        {activities.map((activity) => (
+          <div className="activity" key={activity.name}>
+            <h2>{activity.name}</h2>
+            <div className="time-controls">
+              <button type="button" aria-label={`Subtract 5 minutes from ${activity.name}`}
+                onClick={() => changeTime(activity.name, activity.minutes - 5)}>−</button>
+              <input type="number" min="0" max="1440" step="1" aria-label={`${activity.name} duration in minutes`}
+                value={activity.minutes} onChange={(event) => changeTime(activity.name, Number(event.target.value))} />
+              <span>min</span>
+              <button type="button" aria-label={`Add 5 minutes to ${activity.name}`}
+                onClick={() => changeTime(activity.name, activity.minutes + 5)}>+</button>
             </div>
+          </div>
+        ))}
+      </div>
 
-            <p>Available Time: {Math.floor(freeTime / 60)} hr {freeTime % 60} min </p>
+      <div className="time-summary" aria-live="polite">
+        <p>{planned} min planned · {Math.max(0, available - planned)} min remaining</p>
+        {issue && <p className="text-red-800">{issue}</p>}
+        {saveError && <p className="text-red-800">{saveError}</p>}
+      </div>
 
-            <div className="activity-list">
-                {activities.map((activity, index) => (
-                    <div className="activity" key={index}>
-                        <h2>{activity.name}</h2>
+      {plan && (
+        <section className="mt-4" aria-label="Schedule preview">
+          <h2 className="font-semibold">Schedule preview</h2>
+          <ul className="mt-1">
+            {plan.map((item) => (
+              <li key={item.name}>{item.name} · {timeRange(item.start, item.end)}</li>
+            ))}
+          </ul>
+        </section>
+      )}
+      <button className="planner-button" type="button" disabled={!plan} onClick={savePlan}>Arrange Evening</button>
+    </main>
+  );
+}
 
-                        <div className="time-controls">
-                            <button onClick={() => ChangeTime(index, -5)}>
-                                -
-                            </button>
-
-                            <input 
-                                type = "number" 
-                                min = "0" 
-                                value = {activity.time} 
-                                onChange={(e) => ChangeTime(index, Number(e.target.value) - activity.time)}>
-
-                            </input>
-
-                            <span> min</span>
-
-                            <button onClick={() => ChangeTime(index, 5)}>
-                                +
-                            </button>
-                        </div>
-                    </div>
-                ))}
-            </div>
-
-            <div className="time-summary">
-                <p>
-                    Planned: {Math.floor(plannedTime / 60)} hr {plannedTime % 60} min
-                </p>
-
-                <p>
-                    Remaining Free Time: {remainingTime} min
-                </p>
-
-                {decrease > 0 && (
-                    <p style={{ color: "red" }}>
-                        Not enough free time. Decrease by {decrease} minutes.
-                    </p>
-                )}
-    
-            </div>
-
-            <button className="planner-button" onClick={() => ArrangeEvening(activities, router)}>
-                Arrange Evening →
-            </button>
-        </main>
-    );
+export default function Page() {
+  return (
+    <Suspense fallback={<main className="planner-page">Loading evening planner…</main>}>
+      <SetTime />
+    </Suspense>
+  );
 }

@@ -1,44 +1,11 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState, useSyncExternalStore } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { dateKey, getSelectedDate, getToday, loadEvents, readStoredEvents, saveEvents, serverSnapshot, subscribeToStorage, type EventDetails } from "../../calendar-events";
 
-type Repeat = "none" | "daily" | "weekdays" | "weekly";
-
-interface EventDetails {
-  id: string;
-  date: string;
-  title: string;
-  startTime: string;
-  endTime: string;
-  location: string;
-  description: string;
-  repeat: Repeat;
-}
-
-const STORAGE_KEY = "events";
-
-function loadEvents(): EventDetails[] {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    return raw ? JSON.parse(raw) : [];
-  } catch {
-    return [];
-  }
-}
-
-function saveEvent(event: EventDetails) {
-  const events = loadEvents();
-  const index = events.findIndex((e) => e.id === event.id);
-
-  if (index >= 0) {
-    events[index] = event; // update existing event
-  } else {
-    events.push(event); // add new event
-  }
-
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(events));
-}
+type Repeat = EventDetails["repeat"];
 
 const HOURS = Array.from({ length: 12 }, (_, i) => String(i + 1)); // 1 to 12 for the hour
 const MINUTES = Array.from({ length: 60 }, (_, i) => String(i).padStart(2, "0")); // 00 to 59 for minutes
@@ -76,6 +43,7 @@ function TimeSelect({
       <div className="flex items-center gap-1.5">
         <select
           className="w-16 min-w-0 rounded-xs bg-gray-100 py-2 pl-2.5 pr-1"
+          aria-label={`${label} hour`}
           value={hour12}
           onChange={(e) => handleChange(e.target.value, minute, period)}
         >
@@ -90,6 +58,7 @@ function TimeSelect({
 
         <select
           className="w-16 min-w-0 rounded-xs bg-gray-100 py-2 pl-2.5 pr-1"
+          aria-label={`${label} minute`}
           value={minute}
           onChange={(e) => handleChange(hour12, e.target.value, period)}
         >
@@ -102,6 +71,7 @@ function TimeSelect({
 
         <select
           className="w-16 min-w-0 rounded-xs bg-gray-100 py-2 pl-2.5 pr-1"
+          aria-label={`${label} AM or PM`}
           value={period}
           onChange={(e) => handleChange(hour12, minute, e.target.value)}
         >
@@ -113,12 +83,12 @@ function TimeSelect({
   );
 }
 
-export default function CreateEventPage() {
+function CreateEventForm({ date }: { date: string }) {
   const router = useRouter();
 
   const [event, setEvent] = useState<EventDetails>({
     id: "",
-    date: "",
+    date,
     title: "",
     startTime: "09:00",
     endTime: "10:00",
@@ -126,16 +96,6 @@ export default function CreateEventPage() {
     description: "",
     repeat: "none",
   });
-
-  useEffect(() => {
-    const paramDate = new URLSearchParams(window.location.search).get("date");
-    const validParam = paramDate && /^\d{4}-\d{2}-\d{2}$/.test(paramDate) ? paramDate : null;
-
-    setEvent((prev) => ({
-      ...prev,
-      date: validParam || new Date().toLocaleDateString("en-CA"),
-    }));
-  }, []);
 
   function update<K extends keyof EventDetails>(field: K, value: EventDetails[K]) {
     setEvent((prev) => ({ ...prev, [field]: value }));
@@ -147,19 +107,14 @@ export default function CreateEventPage() {
 
   function handleSave() {
     if (!canSave) return;
-    saveEvent({ ...event, id: crypto.randomUUID() });
-    router.push(`/?date=${event.date}`);
+    saveEvents([...loadEvents(readStoredEvents(), getToday()), { ...event, title: event.title.trim(), id: crypto.randomUUID() }]);
+    router.push(`/?date=${event.date}&status=created`);
   }
 
   return (
     <div className="planner-page flex flex-col gap-4">
-      <button
-        onClick={() => router.back()}
-        className="planner-button self-end"
-        aria-label="Close"
-      >
-        Close
-      </button>
+      <Link href={`/?date=${date}`} className="w-fit underline">← Back to calendar</Link>
+      <h1 className="text-2xl font-semibold">Create event</h1>
 
       <label className="flex flex-col gap-1">
         Event Title
@@ -237,4 +192,13 @@ export default function CreateEventPage() {
       </button>
     </div>
   );
+}
+
+export default function CreateEventPage() {
+  const date = useSyncExternalStore(
+    subscribeToStorage,
+    () => dateKey(getSelectedDate(new URLSearchParams(window.location.search).get("date"), getToday())),
+    serverSnapshot,
+  );
+  return date ? <CreateEventForm key={date} date={date} /> : <main className="planner-page">Loading event form…</main>;
 }
